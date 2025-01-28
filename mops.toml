@@ -1,0 +1,9 @@
+[dependencies]
+base = "0.11.1"
+rand = "https://github.com/aviate-labs/rand.mo#v0.2.3"
+ulid = "https://github.com/aviate-labs/ulid.mo#v0.1.3"
+map = "https://github.com/ZhenyaUsenko/motoko-hash-map#v9.0.1"
+alfangodb = "https://github.com/sagcryptoicp/alfangodb/tree/version_20240421"
+d3storage = "https://github.com/ragpatel8742/d3storage#main"
+httpParser = "https://github.com/NatLabs/http-parser.mo#v0.1.2"
+canistergeek = "0.0.8"
