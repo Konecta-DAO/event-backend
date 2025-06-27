@@ -1,6 +1,6 @@
 import Database "mo:alfangodb/AlfangoDB";
 import Map "mo:map/Map";
-
+import SharedConstants "../../shared/constants";
 import EventAttendeeTable "../tables/eventAttendeeTable";
 import EventTable "../tables/eventTable";
 import Constants "../utils/constants";
@@ -15,16 +15,16 @@ module {
 
   public func createProjectDatabase(databases : Map.Map<Text, Database.Database>) : async Text {
     let item = Database.createDatabase({
-      createDatabaseInput = { name = Constants.KonectA };
+      createDatabaseInput = { name = SharedConstants.KonectA };
       alfangoDB = { databases };
     });
 
     switch (item) {
-      case (#err(msg)) {
-        return "Failed to create " # Constants.KonectA # " database";
+      case (#err(_msg)) {
+        return "Failed to create " # SharedConstants.KonectA # " database";
       };
       case (#ok({})) {
-        return Constants.KonectA # "Database created successfully";
+        return SharedConstants.KonectA # "Database created successfully";
       };
     };
   };
@@ -33,7 +33,7 @@ module {
 
     let item = Database.createTable({
       createTableInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         name = Constants.EventTable;
         attributes = EventTable.EventTableAttributes;
         indexes = EventTable.EventTableIndexes;
@@ -42,10 +42,10 @@ module {
     });
 
     switch (item) {
-      case (#err(msg)) {
+      case (#err(_msg)) {
         return "Failed to create " # Constants.EventTable # " database";
       };
-      case (#ok(id)) {
+      case (#ok(_id)) {
         return Constants.EventTable # "table created successfully";
       };
     };
@@ -56,7 +56,7 @@ module {
 
     let item = Database.createTable({
       createTableInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         name = Constants.EventAttendeeTable;
         attributes = EventAttendeeTable.EventAttendeeTableAttributes;
         indexes = EventAttendeeTable.EventAttendeeTableIndexes;
@@ -65,10 +65,10 @@ module {
     });
 
     switch (item) {
-      case (#err(msg)) {
+      case (#err(_msg)) {
         return "Failed to create " # Constants.EventAttendeeTable # " database";
       };
-      case (#ok(id)) {
+      case (#ok(_id)) {
         return Constants.EventAttendeeTable # "table created successfully";
       };
     };

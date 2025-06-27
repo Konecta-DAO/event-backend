@@ -1,22 +1,20 @@
 import Database "mo:alfangodb/AlfangoDB";
 import Array "mo:base/Array";
-import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
-import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
 import CommonService "../../services/common";
-import KonectaEventTable "../../tables/konectaEventTable";
 import ArgumentTypes "../../types/argumentTypes";
 import Constants "../../utils/constants";
-import HelperService "../../utils/helper";
+import HelperService "../../../shared/common_utils/helper";
+import SharedConstants "../../../shared/constants";
+import SharedTypes "../../../shared/types";
 
 module {
   public func getEventData(eventId : Text, databases : Map.Map<Text, Database.Database>) : Result.Result<ArgumentTypes.EventResponsePayload, [Text]> {
     let items = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.KonectAEventTable;
         filterExpressions = [{
           attributeName = "event_id";
@@ -27,7 +25,7 @@ module {
     });
 
     switch (items) {
-      case (#ok(eventData)) {
+      case (#ok(_eventData)) {
         return CommonService.transformArrayOfLengthOne(items);
       };
       case (#err(error)) #err(error);
@@ -37,7 +35,7 @@ module {
   public func getFeedDetailsByEventId(eventId : Text, databases : Map.Map<Text, Database.Database>) : async Result.Result<ArgumentTypes.FeedResponsePayload, [Text]> {
     let items = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.KonectAEventTable;
         filterExpressions = [{
           attributeName = "event_id";
@@ -48,7 +46,7 @@ module {
     });
 
     switch (items) {
-      case (#ok(eventData)) {
+      case (#ok(_eventData)) {
         return await CommonService.transformFeedArrayOfLengthOne(items);
       };
       case (#err(error)) #err(error);
@@ -58,12 +56,12 @@ module {
   public func getAllEvents(databases : Map.Map<Text, Database.Database>) : Result.Result<[ArgumentTypes.EventResponsePayload], [Text]> {
     let items = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.KonectAEventTable;
         filterExpressions = [
           {
             attributeName = "status";
-            filterExpressionCondition = #NEQ(#text(Constants.EventStatus.Canceled));
+            filterExpressionCondition = #NEQ(#text(SharedTypes.EventStatus.Canceled));
           },
         ];
       };
@@ -71,7 +69,7 @@ module {
     });
 
     switch (items) {
-      case (#ok(eventData)) {
+      case (#ok(_eventData)) {
         return CommonService.transformGetAllEventsResponse(items);
       };
       case (#err(error)) #err(error);
@@ -83,7 +81,7 @@ module {
     var exists = false;
     let items = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.KonectAEventTable;
         filterExpressions = [
           {
@@ -92,7 +90,7 @@ module {
           },
           {
             attributeName = "status";
-            filterExpressionCondition = #NEQ(#text(Constants.EventStatus.Canceled));
+            filterExpressionCondition = #NEQ(#text(SharedTypes.EventStatus.Canceled));
           },
         ];
       };
@@ -119,7 +117,7 @@ module {
         eventType := eventData.event_type;
         return eventType;
       };
-      case (#err(error)) {
+      case (#err(_error)) {
         return eventType;
       };
     };
@@ -128,11 +126,7 @@ module {
   public func eventTableMetadata(databases : Map.Map<Text, Database.Database>) : Database.GetTableMetadataOutputType {
     Database.getTableMetadata({
       getTableMetadataInput = {
-        databaseName = Constants.KonectA;
-        metadata = {
-          databaseName = Constants.KonectA;
-          tableName = Constants.KonectAEventTable;
-        };
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.KonectAEventTable;
       };
       alfangoDB = { databases };
@@ -144,7 +138,7 @@ module {
     var isCanceled = false;
     let items = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.KonectAEventTable;
         filterExpressions = [{
           attributeName = "event_id";
@@ -155,13 +149,13 @@ module {
     });
 
     switch (items) {
-      case (#ok(eventData)) {
+      case (#ok(_eventData)) {
         let eventData = CommonService.transformArrayOfLengthOne(items);
 
         switch (eventData) {
           case (#ok(data)) {
             let status = data.status;
-            if (status == Constants.EventStatus.Canceled) {
+            if (status == SharedTypes.EventStatus.Canceled) {
               isCanceled := true;
             };
 

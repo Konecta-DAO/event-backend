@@ -8,20 +8,22 @@ import Text "mo:base/Text";
 import Time "mo:base/Time";
 import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
+import SharedConstants "../../../shared/constants";
+import SharedInterfaces "../../../shared/interfaces";
+import SharedTypes "../../../shared/types";
+import SharedServices "../../../shared/services";
 import CommonService "../../services/common";
 import KonectaEventReadService "../../services/event/read";
 import UpdateAppliedRequestService "../../services/feed_requests/update";
-import ArgumentTypes "../../types/argumentTypes";
 import KonectaConstants "../../utils/constants";
-import HelperService "../../utils/helper";
+import HelperService "../../../shared/common_utils/helper";
 
 module {
   public func acceptUserApplication(userPrincipal : Principal, userIdOfApplicant : Text, eventId : Text, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : async Result.Result<Text, Text> {
 
     let appliedRequestsResponse = Database.scan({
       scanInput = {
-        databaseName = KonectaConstants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = KonectaConstants.RequestAppliedTable;
         filterExpressions = [
           {
@@ -34,7 +36,7 @@ module {
           },
           {
             attributeName = "action";
-            filterExpressionCondition = #EQ(#text(KonectaConstants.EventAttendeeStatus.Applied));
+            filterExpressionCondition = #EQ(#text(SharedTypes.EventAttendeeStatus.Applied));
           },
         ];
       };
@@ -46,7 +48,6 @@ module {
         if (Array.size(appliedRequests) == 0) {
           return #err("User has not applied for this event");
         } else {
-
           for (request in appliedRequests.vals()) {
             let requestId = request.id;
             let requestItem = request.item;
@@ -58,7 +59,7 @@ module {
               timestamp = Int.abs(Time.now());
             };
 
-            let response = UpdateAppliedRequestService.updateAppliedRequestAction(requestId, requestObject, databases);
+            let _response = UpdateAppliedRequestService.updateAppliedRequestAction(requestId, requestObject, databases);
           };
 
           // Get the feed details for the event
@@ -73,34 +74,34 @@ module {
               switch (response) {
                 case (#ok(accepted)) {
                   if (accepted) {
-                    let eventCanisterActor = actor (KonectaConstants.EventCanister) : CommonService.EventCanisterType;
-                    let userCanisterId = await CommonService.getUserCanisterId(Principal.toText(userPrincipal));
+                    let eventCanisterActor = actor (SharedConstants.EventCanister) : SharedInterfaces.EventActor;
+                    let userCanisterId = await SharedServices.getUserCanisterId(Principal.toText(userPrincipal));
 
-                    var eventStatus : ArgumentTypes.EventStatus = KonectaConstants.EventStatusVariant.Created;
+                    var eventStatus : SharedTypes.EventStatus = SharedTypes.EventStatusVariant.Created;
                     switch (feedData.status) {
-                      case ("Created") eventStatus := KonectaConstants.EventStatusVariant.Created;
-                      case ("Canceled") eventStatus := KonectaConstants.EventStatusVariant.Canceled;
-                      case _ eventStatus := KonectaConstants.EventStatusVariant.Created;
+                      case ("Created") eventStatus := SharedTypes.EventStatusVariant.Created;
+                      case ("Canceled") eventStatus := SharedTypes.EventStatusVariant.Canceled;
+                      case _ eventStatus := SharedTypes.EventStatusVariant.Created;
                     };
 
                     let eventObject = {
-                      user_id = Principal.fromText(feedData.user_id);
+                      user_id = ?Principal.fromText(feedData.user_id);
                       coverphoto = feedData.coverphoto;
                       name = feedData.name;
                       description = feedData.description;
                       location = HelperService.getTupleValueAsText(appliedRequests[0].item, "location");
                       start_date = feedData.start_date;
                       end_date = feedData.end_date;
-                      language = feedData.language;
+                      language = ?feedData.language;
                       status = eventStatus;
-                      metadata = feedData.eventMetadata;
+                      metadata = ?feedData.eventMetadata;
                     };
 
                     let updateEventResponse = await eventCanisterActor.updateEventUsingUserPrincipal(userPrincipal, userCanisterId, eventId, eventObject);
 
                     switch (updateEventResponse) {
                       case (#ok(response)) #ok("Application accepted successfully");
-                      case (#err(error)) #err("Error accepting application");
+                      case (#err(_error)) #err("Error accepting application");
                     };
 
                   } else {

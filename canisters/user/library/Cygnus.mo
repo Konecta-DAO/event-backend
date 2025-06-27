@@ -32,7 +32,7 @@ module {
     compute_allocation : Nat;
   };
 
-  public type ManagementCanitser = actor {
+  public type ManagementCanister = actor {
     canister_status : shared { canister_id : Principal } -> async {
       status : { #stopped; #stopping; #running };
       memory_size : Nat;
@@ -44,13 +44,13 @@ module {
   };
 
   public type CygnusCanister = actor {
-    acceptWithdrwalCyclesFromOtherCanitsers : () -> async ();
+    acceptWithdrwalCyclesFromOtherCanisters : () -> async ();
   };
 
   public class Cygnus() {
     public let CYGNUS_CANISTER_ID = "dowzh-nyaaa-aaaai-qnowq-cai";
-    public let ManagementCanitser = actor ("aaaaa-aa") : ManagementCanitser;
-    public let CygnusCanitser = actor (CYGNUS_CANISTER_ID) : CygnusCanister;
+    public let ManagementCanister = actor ("aaaaa-aa") : ManagementCanister;
+    public let CygnusCanister = actor (CYGNUS_CANISTER_ID) : CygnusCanister;
 
     public func validateUser(callerPrincipalId : Principal, auxiliaryPrincipalIdOpt : ?Principal) : () {
 
@@ -88,7 +88,7 @@ module {
     };
 
     public func getStatus(principalId : Principal) : async CanisterStatus {
-      await ManagementCanitser.canister_status({
+      await ManagementCanister.canister_status({
         canister_id = principalId;
       });
     };

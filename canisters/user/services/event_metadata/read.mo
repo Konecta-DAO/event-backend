@@ -2,12 +2,13 @@ import Database "mo:alfangodb/AlfangoDB";
 import Array "mo:base/Array";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
-import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
+import SharedConstants "../../../shared/constants";
+import SharedTypes "../../../shared/types";
 import ArgumentTypes "../../types/argumentTypes";
 import Constants "../../utils/constants";
 import CommonService "../common";
+import HelperService "../../../shared/common_utils/helper";
 
 module {
 
@@ -15,7 +16,7 @@ module {
 
     let item = Database.getItemById({
       getItemByIdInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventMetadataTable;
         id = eventMetadataId;
       };
@@ -28,12 +29,12 @@ module {
   public func getAllEventsMetadata(databases : Map.Map<Text, Database.Database>) : Result.Result<[ArgumentTypes.EventMetadataResponsePayload], [Text]> {
     let items = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventMetadataTable;
         filterExpressions = [
           {
             attributeName = "status";
-            filterExpressionCondition = #NEQ(#text(Constants.EventStatus.Canceled));
+            filterExpressionCondition = #NEQ(#text(SharedTypes.EventStatus.Canceled));
           },
         ];
       };
@@ -46,12 +47,12 @@ module {
   public func getAllEventsMetadataForUser(databases : Map.Map<Text, Database.Database>) : Result.Result<[ArgumentTypes.EventMetadataResponsePayload], [Text]> {
     let items = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventMetadataTable;
         filterExpressions = [
           {
             attributeName = "status";
-            filterExpressionCondition = #NEQ(#text(Constants.EventStatus.Canceled));
+            filterExpressionCondition = #NEQ(#text(SharedTypes.EventStatus.Canceled));
           },
         ];
       };
@@ -66,7 +67,7 @@ module {
 
     let eventResponse = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventMetadataTable;
         filterExpressions = [
           {
@@ -75,7 +76,7 @@ module {
           },
           {
             attributeName = "status";
-            filterExpressionCondition = #NEQ(#text(Constants.EventStatus.Canceled));
+            filterExpressionCondition = #NEQ(#text(SharedTypes.EventStatus.Canceled));
           },
         ];
       };
@@ -90,19 +91,19 @@ module {
           exists := false;
         };
       };
-      case (#err(err)) exists := false;
+      case (#err(_err)) exists := false;
     };
 
     return exists;
   };
 
   public func getEventMetaDataFromStartToEndDate(startDate : Nat, endDate : Nat, categories : [Text], databases : Map.Map<Text, Database.Database>) : Result.Result<[ArgumentTypes.EventMetadataResponsePayload], [Text]> {
-    let categoriesArray = CommonService.getStringAttributeDataValueArray(categories);
+    let categoriesArray = HelperService.getStringAttributeDataValueArray(categories);
 
     if (Array.size(categoriesArray) == 0) {
       let items = Database.scan({
         scanInput = {
-          databaseName = Constants.KonectA;
+          databaseName = SharedConstants.KonectA;
           tableName = Constants.EventMetadataTable;
           filterExpressions = [
             {
@@ -115,7 +116,7 @@ module {
             },
             {
               attributeName = "status";
-              filterExpressionCondition = #NEQ(#text(Constants.EventStatus.Canceled));
+              filterExpressionCondition = #NEQ(#text(SharedTypes.EventStatus.Canceled));
             },
           ];
         };
@@ -126,7 +127,7 @@ module {
     } else {
       let items = Database.scan({
         scanInput = {
-          databaseName = Constants.KonectA;
+          databaseName = SharedConstants.KonectA;
           tableName = Constants.EventMetadataTable;
           filterExpressions = [
             {
@@ -143,7 +144,7 @@ module {
             },
             {
               attributeName = "status";
-              filterExpressionCondition = #NEQ(#text(Constants.EventStatus.Canceled));
+              filterExpressionCondition = #NEQ(#text(SharedTypes.EventStatus.Canceled));
             },
           ];
         };
@@ -158,7 +159,7 @@ module {
   public func getEventMetadataId(eventId : Text, calendarId : Text, databases : Map.Map<Text, Database.Database>) : Text {
     let result = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventMetadataTable;
         filterExpressions = [
           {
@@ -171,7 +172,7 @@ module {
           },
           {
             attributeName = "status";
-            filterExpressionCondition = #NEQ(#text(Constants.EventStatus.Canceled));
+            filterExpressionCondition = #NEQ(#text(SharedTypes.EventStatus.Canceled));
           },
         ];
       };
@@ -184,7 +185,7 @@ module {
         return eventMetadataId;
       };
 
-      case (#err(error)) {
+      case (#err(_error)) {
         return "Failed to find event metadata id";
       };
     };
@@ -193,11 +194,7 @@ module {
   public func getUserEventMetadataTableMetadata(databases : Map.Map<Text, Database.Database>) : Database.GetTableMetadataOutputType {
     Database.getTableMetadata({
       getTableMetadataInput = {
-        databaseName = Constants.KonectA;
-        metadata = {
-          databaseName = Constants.KonectA;
-          tableName = Constants.EventMetadataTable;
-        };
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventMetadataTable;
       };
       alfangoDB = { databases };

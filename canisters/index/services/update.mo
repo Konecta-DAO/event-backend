@@ -86,7 +86,7 @@ module {
       };
       let userCanisterArray = Buffer.toArray(userCanisterBuffer);
       #ok("Inserted " # Nat.toText(Array.size(userCanisterArray)) # " users data");
-    } catch (e) {
+    } catch (_e) {
       #err("Failed to insert user data for all or some users");
     };
   };

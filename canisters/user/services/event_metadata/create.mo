@@ -1,5 +1,4 @@
 import Database "mo:alfangodb/AlfangoDB";
-import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Debug "mo:base/Debug";
 import Principal "mo:base/Principal";
@@ -7,11 +6,13 @@ import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
+import SharedConstants "../../../shared/constants";
+import SharedTypes "../../../shared/types";
 import EventMetadataReadService "../../services/event_metadata/read";
 import ArgumentTypes "../../types/argumentTypes";
 import Constants "../../utils/constants";
 import CommonService "../common";
+import HelperService "../../../shared/common_utils/helper";
 
 module {
   public func createEventMetaData(
@@ -27,18 +28,18 @@ module {
 
       Debug.print("eventMetadataPayload --->" # debug_show (eventMetadataPayload));
 
-      let categories : [Text] = CommonService.initializeTextArrayField(eventMetadataPayload.categories, []);
-      let interests : [Text] = CommonService.initializeTextArrayField(eventMetadataPayload.interests, []);
-      let calendar_id : Text = CommonService.initializeTextField(eventMetadataPayload.calendar_id, "");
-      let eventName : Text = CommonService.initializeTextField(eventMetadataPayload.name, "");
-      let startDate : Nat = CommonService.initializeNatField(eventMetadataPayload.start_date, 0);
-      let endDate : Nat = CommonService.initializeNatField(eventMetadataPayload.end_date, 0);
-      let createdBy : Principal = CommonService.initializePrincipalField(eventMetadataPayload.created_by, Principal.fromText(Constants.AnonymousPrincipal));
+      let categories : [Text] = HelperService.initializeTextArrayField(eventMetadataPayload.categories, []);
+      let interests : [Text] = HelperService.initializeTextArrayField(eventMetadataPayload.interests, []);
+      let calendar_id : Text = HelperService.initializeTextField(eventMetadataPayload.calendar_id, "");
+      let eventName : Text = HelperService.initializeTextField(eventMetadataPayload.name, "");
+      let startDate : Nat = HelperService.initializeNatField(eventMetadataPayload.start_date, 0);
+      let endDate : Nat = HelperService.initializeNatField(eventMetadataPayload.end_date, 0);
+      let createdBy : Principal = HelperService.initializePrincipalField(eventMetadataPayload.created_by, Principal.fromText(SharedConstants.AnonymousPrincipal));
 
-      let categoriesArray = CommonService.getStringAttributeDataValueArray(categories);
-      let interestArray = CommonService.getStringAttributeDataValueArray(interests);
+      let categoriesArray = HelperService.getStringAttributeDataValueArray(categories);
+      let interestArray = HelperService.getStringAttributeDataValueArray(interests);
 
-      let eventStatus = CommonService.getEventStatus(eventMetadataPayload.status, Constants.EventStatus.Created);
+      let eventStatus = CommonService.getEventStatus(eventMetadataPayload.status, SharedTypes.EventStatus.Created);
 
       dataValuesToBeAppended.add("calendar_id", #text(calendar_id));
       dataValuesToBeAppended.add("event_id", #text(eventMetadataPayload.event_id));
@@ -57,7 +58,7 @@ module {
 
       let item = await Database.createItem({
         createItemInput = {
-          databaseName = Constants.KonectA;
+          databaseName = SharedConstants.KonectA;
           tableName = Constants.EventMetadataTable;
           attributeDataValues = dataValuesArray;
         };
@@ -67,7 +68,7 @@ module {
       canistergeekLogger.logMessage("Create Event metadata response item --->" # debug_show (item));
 
       switch (item) {
-        case (#err(msg)) {
+        case (#err(_msg)) {
           #err("Failed to create event metadata");
         };
         case (#ok(result)) {

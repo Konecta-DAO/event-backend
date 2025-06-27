@@ -1,5 +1,4 @@
 import Principal "mo:base/Principal";
-import Result "mo:base/Result";
 
 import NNSLedger "NNSLedger";
 

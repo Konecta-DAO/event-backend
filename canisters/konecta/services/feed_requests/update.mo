@@ -1,12 +1,11 @@
 import Database "mo:alfangodb/AlfangoDB";
-import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Map "mo:map/Map";
-
+import SharedConstants "../../../shared/constants";
 import CommonService "../../services/common";
 import ArgumentTypes "../../types/argumentTypes";
 import EventConstants "../../utils/constants";
-import HelperService "../../utils/helper";
+import HelperService "../../../shared/common_utils/helper";
 
 module {
   public func updateAppliedRequestAction(requestId : Text, requestObject : ArgumentTypes.AppliedServiceRequestsPayload, databases : Map.Map<Text, Database.Database>) : Result.Result<Text, Text> {
@@ -22,7 +21,7 @@ module {
 
     let item = Database.updateItem({
       updateItemInput = {
-        databaseName = EventConstants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = EventConstants.RequestAppliedTable;
         id = requestId;
         attributeDataValues = attributeDataValues;

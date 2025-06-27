@@ -6,7 +6,8 @@ import Text "mo:base/Text";
 import Time "mo:base/Time";
 import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
+import SharedConstants "../../../shared/constants";
+import SharedTypes "../../../shared/types";
 import FeedRequestsReadService "../../services/feed_requests/read";
 import ArgumentTypes "../../types/argumentTypes";
 import EventConstants "../../utils/constants";
@@ -28,7 +29,7 @@ module {
       dataValuesToBeAppended.add("applied_user_id", #principal(userPrincipal));
       dataValuesToBeAppended.add("note", #text(payload.note));
       dataValuesToBeAppended.add("location", #text(payload.location));
-      dataValuesToBeAppended.add("action", #text(EventConstants.EventAttendeeStatus.Applied));
+      dataValuesToBeAppended.add("action", #text(SharedTypes.EventAttendeeStatus.Applied));
       dataValuesToBeAppended.add("timestamp", #nat(Int.abs(Time.now())));
 
       // Append the data values buffer to the initial data values buffer
@@ -39,7 +40,7 @@ module {
       // Create an item in the Event Attendee Table in the database
       let item = await Database.createItem({
         createItemInput = {
-          databaseName = EventConstants.KonectA;
+          databaseName = SharedConstants.KonectA;
           tableName = EventConstants.RequestAppliedTable;
           attributeDataValues = dataValuesArray;
         };
@@ -47,7 +48,7 @@ module {
       });
 
       switch (item) {
-        case (#err(msg)) {
+        case (#err(_msg)) {
           // If there was an error creating the item, set the response accordingly
           response := "Failed to apply to the event. Please try again later";
         };

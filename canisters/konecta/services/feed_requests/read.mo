@@ -2,23 +2,28 @@ import Database "mo:alfangodb/AlfangoDB";
 import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Debug "mo:base/Debug";
-import Error "mo:base/Error";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
+import HashMap "mo:base/HashMap";
+import Text "mo:base/Text";
 import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
+import SharedConstants "../../../shared/constants";
+import SharedInterfaces "../../../shared/interfaces";
+import SharedTypes "../../../shared/types";
+import SharedServices "../../../shared/services";
 import EventReadService "../../services/event/read";
 import ArgumentTypes "../../types/argumentTypes";
 import Constants "../../utils/constants";
-import HelperService "../../utils/helper";
-import { getTupleValueAsText; textToNat } "../../utils/helper";
+import HelperService "../../../shared/common_utils/helper";
+import { getTupleValueAsText; textToNat } "../../../shared/common_utils/helper";
 import CommonService "../common";
+
 module {
   public func getMyServiceRequests(userPrincipal : Principal, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : async Result.Result<[ArgumentTypes.FeedResponsePayload], [Text]> {
     let eventResponse = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.KonectAEventTable;
         filterExpressions = [
           {
@@ -31,7 +36,7 @@ module {
           },
           {
             attributeName = "status";
-            filterExpressionCondition = #NEQ(#text(Constants.EventStatus.Canceled));
+            filterExpressionCondition = #NEQ(#text(SharedTypes.EventStatus.Canceled));
           },
         ];
       };
@@ -43,38 +48,10 @@ module {
     return await CommonService.transformGetAllFeedsResponse(eventResponse);
   };
 
-  public func getMyServiceRequestsNoTransformPublic(userPrincipal : Principal, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : async Database.ScanOutputType {
-    let eventResponse = Database.scan({
-      scanInput = {
-        databaseName = Constants.KonectA;
-        tableName = Constants.KonectAEventTable;
-        filterExpressions = [
-          {
-            attributeName = "user_id";
-            filterExpressionCondition = #EQ(#text(Principal.toText(userPrincipal)));
-          },
-          {
-            attributeName = "event_type";
-            filterExpressionCondition = #EQ(#text(Constants.EventType.Request));
-          },
-          {
-            attributeName = "status";
-            filterExpressionCondition = #NEQ(#text(Constants.EventStatus.Canceled));
-          },
-        ];
-      };
-      alfangoDB = { databases };
-    });
-
-    Debug.print(debug_show (eventResponse));
-    canistergeekLogger.logMessage("My service requests --->" # debug_show (eventResponse));
-    return eventResponse;
-  };
-
   public func getServiceRequestsApartFromMe(userPrincipal : Principal, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : async Result.Result<[ArgumentTypes.FeedResponsePayload], [Text]> {
     let eventResponse = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.KonectAEventTable;
         filterExpressions = [
           {
@@ -87,7 +64,7 @@ module {
           },
           {
             attributeName = "status";
-            filterExpressionCondition = #NEQ(#text(Constants.EventStatus.Canceled));
+            filterExpressionCondition = #NEQ(#text(SharedTypes.EventStatus.Canceled));
           },
         ];
       };
@@ -98,39 +75,12 @@ module {
     return await CommonService.transformGetAllFeedsResponse(eventResponse);
   };
 
-  public func getServiceRequestsApartFromMeNoTranformPublic(userPrincipal : Principal, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : Database.ScanOutputType {
-    let eventResponse = Database.scan({
-      scanInput = {
-        databaseName = Constants.KonectA;
-        tableName = Constants.KonectAEventTable;
-        filterExpressions = [
-          {
-            attributeName = "user_id";
-            filterExpressionCondition = #NEQ(#text(Principal.toText(userPrincipal)));
-          },
-          {
-            attributeName = "event_type";
-            filterExpressionCondition = #EQ(#text(Constants.EventType.Request));
-          },
-          {
-            attributeName = "status";
-            filterExpressionCondition = #NEQ(#text(Constants.EventStatus.Canceled));
-          },
-        ];
-      };
-      alfangoDB = { databases };
-    });
-    Debug.print(debug_show (eventResponse));
-    canistergeekLogger.logMessage("Service requests other than me not tranformed--->" # debug_show (eventResponse));
-    return eventResponse;
-  };
-
   public func checkIfRequestAppliedForEvent(userPrincipal : Principal, eventId : Text, databases : Map.Map<Text, Database.Database>) : Bool {
     var exists = false;
 
     let eventResponse = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.RequestAppliedTable;
         filterExpressions = [
           {
@@ -154,19 +104,19 @@ module {
           exists := false;
         };
       };
-      case (#err(err)) exists := false;
+      case (#err(_err)) exists := false;
     };
 
     return exists;
   };
 
-  public func getAppliedUsersByActionForEvent(eventId : Text, action : ArgumentTypes.EventAttendeeActions, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : Result.Result<[ArgumentTypes.AppplicantIdsResponsePayload], [Text]> {
+  public func getAppliedUsersByActionForEvent(eventId : Text, action : SharedTypes.EventAttendeeActions, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : Result.Result<[ArgumentTypes.AppplicantIdsResponsePayload], [Text]> {
 
     let actionType = CommonService.getActionType(action);
 
     let appliedRequestsResponse = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.RequestAppliedTable;
         filterExpressions = [
           {
@@ -190,7 +140,6 @@ module {
         let userBuffer = Buffer.Buffer<ArgumentTypes.AppplicantIdsResponsePayload>(0);
 
         for (applicant in applicantsData.vals()) {
-          let itemId = applicant.id;
           let itemData = applicant.item;
 
           let userObject = {
@@ -210,13 +159,13 @@ module {
     };
   };
 
-  public func getAppliedUsersByActionWithUserData(eventId : Text, action : ArgumentTypes.EventAttendeeActions, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : async Result.Result<[ArgumentTypes.ApplicantsWithUserDataPayload], [Text]> {
+  public func getAppliedUsersByActionWithUserData(eventId : Text, action : SharedTypes.EventAttendeeActions, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : async Result.Result<[ArgumentTypes.ApplicantsWithUserDataPayload], [Text]> {
 
     let actionType = CommonService.getActionType(action);
 
     let appliedRequestsResponse = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.RequestAppliedTable;
         filterExpressions = [
           {
@@ -240,11 +189,10 @@ module {
         let userBuffer = Buffer.Buffer<ArgumentTypes.ApplicantsWithUserDataPayload>(0);
 
         for (applicant in applicantsData.vals()) {
-          let itemId = applicant.id;
           let itemData = applicant.item;
 
           let userObject = {
-            userData = await CommonService.getUserDetails(getTupleValueAsText(itemData, "applied_user_id"));
+            userData = await SharedServices.getUserDetails(getTupleValueAsText(itemData, "applied_user_id"));
             note = getTupleValueAsText(itemData, "note");
             location = getTupleValueAsText(itemData, "location");
           };
@@ -265,7 +213,7 @@ module {
 
     let appliedRequestsResponse = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.RequestAppliedTable;
         filterExpressions = [
           {
@@ -302,7 +250,7 @@ module {
   public func getMyProposals(userPrincipal : Principal, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : async Result.Result<[ArgumentTypes.ProposalResponsePayload], Text> {
     let appliedRequests = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.RequestAppliedTable;
         filterExpressions = [
           {
@@ -311,7 +259,7 @@ module {
           },
           {
             attributeName = "action";
-            filterExpressionCondition = #IN([#text(Constants.EventAttendeeStatus.Applied), #text(Constants.EventAttendeeStatus.Accepted), #text(Constants.EventAttendeeStatus.Declined)]);
+            filterExpressionCondition = #IN([#text(SharedTypes.EventAttendeeStatus.Applied), #text(SharedTypes.EventAttendeeStatus.Accepted), #text(SharedTypes.EventAttendeeStatus.Declined)]);
           },
         ];
       };
@@ -360,18 +308,21 @@ module {
 
   public func getServiceRequestsForMyProfile(userPrincipal : Principal, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : async Result.Result<[ArgumentTypes.FeedResponsePayload], Text> {
 
-    let myRequests = await getMyServiceRequests(userPrincipal, databases, canistergeekLogger);
-    canistergeekLogger.logMessage("My service requests --->" # debug_show (myRequests));
+    let myRequestsResult = await getMyServiceRequests(userPrincipal, databases, canistergeekLogger);
+    canistergeekLogger.logMessage("My service requests --->" # debug_show (myRequestsResult));
 
-    switch (myRequests) {
-      case (#ok(requests)) {
+    switch (myRequestsResult) {
+      case (#err(error)) {
+        let errorMsg = HelperService.textArrayToString(error);
+        canistergeekLogger.logMessage("Failed to get My requests --->" # debug_show (errorMsg));
+        return #err(errorMsg);
+      };
+      case (#ok(myRequests)) {
+        var finalFeedsBuffer = Buffer.fromArray<ArgumentTypes.FeedResponsePayload>(myRequests);
 
-        var requestsBuffer = Buffer.Buffer<ArgumentTypes.FeedResponsePayload>(0);
-        requestsBuffer.insertBuffer(0, Buffer.fromArray(requests));
-
-        let appliedRequests = Database.scan({
+        let acceptedRequestsResult = Database.scan({
           scanInput = {
-            databaseName = Constants.KonectA;
+            databaseName = SharedConstants.KonectA;
             tableName = Constants.RequestAppliedTable;
             filterExpressions = [
               {
@@ -380,71 +331,92 @@ module {
               },
               {
                 attributeName = "action";
-                filterExpressionCondition = #EQ(#text(Constants.EventAttendeeStatus.Accepted));
+                filterExpressionCondition = #EQ(#text(SharedTypes.EventAttendeeStatus.Accepted));
               },
             ];
           };
           alfangoDB = { databases };
         });
-        canistergeekLogger.logMessage("My applied requests --->" # debug_show (appliedRequests));
-        try {
 
-          switch (appliedRequests) {
-            case (#ok(acceptedRequests)) {
+        switch (acceptedRequestsResult) {
+          case (#ok(acceptedRequests)) {
+            if (Array.size(acceptedRequests) > 0) {
 
-              let acceptedRequestsBuffer = Buffer.Buffer<ArgumentTypes.FeedResponsePayload>(0);
+              var eventIdsBuffer = Buffer.Buffer<Text>(acceptedRequests.size());
               for (request in acceptedRequests.vals()) {
-                let eventId = getTupleValueAsText(request.item, "event_id");
-                canistergeekLogger.logMessage("Accepted Event Id --->" # debug_show (eventId));
+                eventIdsBuffer.add(getTupleValueAsText(request.item, "event_id"));
+              };
+              let eventIds = Buffer.toArray(eventIdsBuffer);
 
-                let checkEventCanceledResponse = EventReadService.checkIfEventIsCanceled(eventId, databases);
+              let eventCanisterActor = actor (SharedConstants.EventCanister) : SharedInterfaces.EventActor;
+              let eventDetailsList = await eventCanisterActor.getMultipleEventsDetailsWithUserData(eventIds);
 
-                switch (checkEventCanceledResponse) {
-                  case (#ok(eventCanceled)) {
-                    if (not eventCanceled) {
-
-                      let eventDataResponse = await EventReadService.getFeedDetailsByEventId(eventId, databases);
-                      canistergeekLogger.logMessage("Accepted Event Data Response --->" # debug_show (eventDataResponse));
-
-                      switch (eventDataResponse) {
-                        case (#ok(eventData)) {
-                          acceptedRequestsBuffer.add(eventData);
-
-                          canistergeekLogger.logMessage("Accepted Event Requests Array --->" # debug_show (Buffer.toArray(acceptedRequestsBuffer)));
-                        };
-                        case (#err(error)) {
-                          canistergeekLogger.logMessage("Failed to add accepted request to buffer --->" # debug_show (Buffer.toArray(acceptedRequestsBuffer)));
-                        };
-                      };
-                    };
-                  };
-                  case (#err(error)) {
-                    canistergeekLogger.logMessage("Failed to check event canceled or not --->" # debug_show (error));
-                  };
+              var eventDetailsMap = HashMap.HashMap<Text, SharedTypes.EventDetailsPayload>(
+                eventIds.size(),
+                Text.equal,
+                Text.hash,
+              );
+              for ((eventId, eventDetailsOpt) in eventDetailsList.vals()) {
+                switch (eventDetailsOpt) {
+                  case (?details) eventDetailsMap.put(eventId, details);
+                  case null {};
                 };
-
               };
 
-              requestsBuffer.append(acceptedRequestsBuffer);
-              canistergeekLogger.logMessage("Requests Array --->" # debug_show (Buffer.toArray(requestsBuffer)));
-              #ok(Buffer.toArray(requestsBuffer));
-            };
-            case (#err(error)) {
-              canistergeekLogger.logMessage("Failed to get My accepted requests --->" # debug_show (HelperService.textArrayToString(error)));
-              #err(HelperService.textArrayToString(error));
+              var konectaEventMap = HashMap.HashMap<Text, ArgumentTypes.EventResponsePayload>(
+                eventIds.size(),
+                Text.equal,
+                Text.hash,
+              );
+              for (eventId in eventIds.vals()) {
+                switch (EventReadService.getEventData(eventId, databases)) {
+                  case (#ok(konectaData)) konectaEventMap.put(eventId, konectaData);
+                  case (#err(_)) {};
+                };
+              };
+
+              for (request in acceptedRequests.vals()) {
+                let eventId = getTupleValueAsText(request.item, "event_id");
+
+                switch ((eventDetailsMap.get(eventId), konectaEventMap.get(eventId))) {
+                  case (?(eventData), ?(konectaData)) {
+                    if (eventData.status != SharedTypes.EventStatus.Canceled) {
+                      finalFeedsBuffer.add({
+                        konecta_event_id = konectaData.konecta_event_id;
+                        user_id = eventData.user_id;
+                        event_id = eventId;
+                        coverphoto = eventData.coverphoto;
+                        name = eventData.name;
+                        description = eventData.description;
+                        location = eventData.location;
+                        start_date = eventData.start_date;
+                        end_date = eventData.end_date;
+                        language = eventData.language;
+                        status = eventData.status;
+                        userData = eventData.userData;
+                        event_type = konectaData.event_type;
+                        expertise = konectaData.expertise;
+                        price_token = konectaData.price_token;
+                        token_amount = konectaData.token_amount;
+                        categories = konectaData.categories;
+                        consultations = konectaData.consultations;
+                        interests = konectaData.interests;
+                        eventMetadata = eventData.metadata;
+                        konectaMetadata = konectaData.metadata;
+                      });
+                    };
+                  };
+                  case _ {};
+                };
+              };
             };
           };
-
-        } catch (e) {
-          canistergeekLogger.logMessage("Error thrown --->" # debug_show (Error.message(e)));
-          throw e;
+          case (#err(error)) {
+            canistergeekLogger.logMessage("Failed to get My accepted requests --->" # debug_show (HelperService.textArrayToString(error)));
+          };
         };
 
-      };
-
-      case (#err(error)) {
-        canistergeekLogger.logMessage("Failed to get My requests --->" # debug_show (HelperService.textArrayToString(error)));
-        #err(HelperService.textArrayToString(error));
+        return #ok(Buffer.toArray(finalFeedsBuffer));
       };
     };
   };
@@ -474,7 +446,7 @@ module {
         return userStatus;
 
       };
-      case (#err(error)) {
+      case (#err(_error)) {
         return userStatus;
       };
     };
@@ -503,10 +475,10 @@ module {
             };
           };
         } else {
-          let eventCanisterActor = actor (Constants.EventCanister) : CommonService.EventCanisterType;
+          let eventCanisterActor = actor (SharedConstants.EventCanister) : SharedInterfaces.EventActor;
           let exists = await eventCanisterActor.checkIfAttendeeExistsForEvent(userPrincipal, eventId);
           if (exists) {
-            userStatus := Constants.EventAttendeeStatus.Joined;
+            userStatus := SharedTypes.EventAttendeeStatus.Joined;
           };
           #ok(userStatus);
         };

@@ -4,12 +4,12 @@ import Buffer "mo:base/Buffer";
 import Debug "mo:base/Debug";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
-import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
-import ArgumentTypes "../../types/argumentTypes";
+import SharedTypes "../../../shared/types";
+import SharedConstants "../../../shared/constants";
+import SharedServices "../../../shared/services";
 import EventConstants "../../utils/constants";
-import { getTupleValueAsText } "../../utils/helper";
+import { getTupleValueAsText } "../../../shared/common_utils/helper";
 import CommonService "../common";
 
 module {
@@ -20,7 +20,7 @@ module {
 
     let eventResponse = Database.scan({
       scanInput = {
-        databaseName = EventConstants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = EventConstants.EventAttendeeTable;
         filterExpressions = [
           {
@@ -45,19 +45,19 @@ module {
           exists := false;
         };
       };
-      case (#err(err)) exists := false;
+      case (#err(_err)) exists := false;
     };
 
     return exists;
   };
 
-  public func getAttendeesByActionWithUserDetails(eventId : Text, action : ArgumentTypes.EventAttendeeActions, databases : Map.Map<Text, Database.Database>) : async Result.Result<[ArgumentTypes.UserResponsePayload], [Text]> {
+  public func getAttendeesByActionWithUserDetails(eventId : Text, action : SharedTypes.EventAttendeeActions, databases : Map.Map<Text, Database.Database>) : async Result.Result<[SharedTypes.UserResponsePayload], [Text]> {
 
     let actionType = CommonService.getActionType(action);
 
     let attendees = Database.scan({
       scanInput = {
-        databaseName = EventConstants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = EventConstants.EventAttendeeTable;
         filterExpressions = [
           {
@@ -75,13 +75,12 @@ module {
 
     switch (attendees) {
       case (#ok(attendeeData)) {
-        let userDataBuffer = Buffer.Buffer<ArgumentTypes.UserResponsePayload>(0);
+        let userDataBuffer = Buffer.Buffer<SharedTypes.UserResponsePayload>(0);
 
         for (attendee in attendeeData.vals()) {
-          let itemId = attendee.id;
           let itemData = attendee.item;
 
-          let user = await CommonService.getUserDetails(getTupleValueAsText(itemData, "invitee_user_id"));
+          let user = await SharedServices.getUserDetails(getTupleValueAsText(itemData, "invitee_user_id"));
           userDataBuffer.add(user);
         };
 
@@ -94,13 +93,13 @@ module {
     };
   };
 
-  public func getAttendeesIdsByAction(eventId : Text, action : ArgumentTypes.EventAttendeeActions, databases : Map.Map<Text, Database.Database>) : Result.Result<[Text], [Text]> {
+  public func getAttendeesIdsByAction(eventId : Text, action : SharedTypes.EventAttendeeActions, databases : Map.Map<Text, Database.Database>) : Result.Result<[Text], [Text]> {
 
     let actionType = CommonService.getActionType(action);
 
     let attendees = Database.scan({
       scanInput = {
-        databaseName = EventConstants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = EventConstants.EventAttendeeTable;
         filterExpressions = [
           {
@@ -121,7 +120,6 @@ module {
         let userIdBuffer = Buffer.Buffer<Text>(0);
 
         for (attendee in attendeeData.vals()) {
-          let itemId = attendee.id;
           let itemData = attendee.item;
 
           let user = getTupleValueAsText(itemData, "invitee_user_id");
@@ -143,7 +141,7 @@ module {
 
     let attendees = Database.scan({
       scanInput = {
-        databaseName = EventConstants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = EventConstants.EventAttendeeTable;
         filterExpressions = [{
           attributeName = "event_id";
@@ -158,7 +156,6 @@ module {
         let userIdBuffer = Buffer.Buffer<Text>(0);
 
         for (attendee in attendeeData.vals()) {
-          let itemId = attendee.id;
           let itemData = attendee.item;
 
           let user = getTupleValueAsText(itemData, "invitee_user_id");
@@ -180,7 +177,7 @@ module {
 
     let events = Database.scan({
       scanInput = {
-        databaseName = EventConstants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = EventConstants.EventAttendeeTable;
         filterExpressions = [
           {
@@ -189,7 +186,7 @@ module {
           },
           {
             attributeName = "action";
-            filterExpressionCondition = #EQ(#text(EventConstants.EventAttendeeStatus.Joined));
+            filterExpressionCondition = #EQ(#text(SharedTypes.EventAttendeeStatus.Joined));
           },
         ];
       };
@@ -201,7 +198,6 @@ module {
         let eventIdBuffer = Buffer.Buffer<Text>(0);
 
         for (eventAttendee in eventAttendeesData.vals()) {
-          let itemId = eventAttendee.id;
           let itemData = eventAttendee.item;
 
           let eventId = getTupleValueAsText(itemData, "event_id");

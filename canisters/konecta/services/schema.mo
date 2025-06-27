@@ -2,7 +2,7 @@ import Database "mo:alfangodb/AlfangoDB";
 import Text "mo:base/Text";
 import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
+import SharedConstants "../../shared/constants";
 import KonectaEventTable "../tables/konectaEventTable";
 import RequestAppliedTable "../tables/requestAppliedTable";
 import Constants "../utils/constants";
@@ -10,17 +10,17 @@ import Constants "../utils/constants";
 module {
   public func createProjectDatabase(databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : async Text {
     let item = Database.createDatabase({
-      createDatabaseInput = { name = Constants.KonectA };
+      createDatabaseInput = { name = SharedConstants.KonectA };
       alfangoDB = { databases };
     });
 
     switch (item) {
       case (#err(msg)) {
         canistergeekLogger.logMessage("Create Konecta database error --->" # debug_show (msg));
-        return "Failed to create " # Constants.KonectA # " database";
+        return "Failed to create " # SharedConstants.KonectA # " database";
       };
       case (#ok({})) {
-        return Constants.KonectA # "Database created successfully";
+        return SharedConstants.KonectA # "Database created successfully";
       };
     };
   };
@@ -29,7 +29,7 @@ module {
 
     let item = Database.createTable({
       createTableInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         name = Constants.KonectAEventTable;
         attributes = KonectaEventTable.KonectaEventTableAttributes;
         indexes = KonectaEventTable.KonectaEventTableIndexes;
@@ -42,7 +42,7 @@ module {
         canistergeekLogger.logMessage("Create Konecta table error --->" # debug_show (msg));
         return "Failed to create " # Constants.KonectAEventTable # " database";
       };
-      case (#ok(id)) {
+      case (#ok(_id)) {
         return Constants.KonectAEventTable # "table created successfully";
       };
     };
@@ -53,7 +53,7 @@ module {
 
     let item = Database.createTable({
       createTableInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         name = Constants.RequestAppliedTable;
         attributes = RequestAppliedTable.RequestAppliedTableAttributes;
         indexes = RequestAppliedTable.RequestAppliedTableIndexes;
@@ -66,7 +66,7 @@ module {
         canistergeekLogger.logMessage("Create Request Applied table error --->" # debug_show (msg));
         return "Failed to create " # Constants.RequestAppliedTable # " database";
       };
-      case (#ok(id)) {
+      case (#ok(_id)) {
         return Constants.RequestAppliedTable # "table created successfully";
       };
     };
@@ -77,7 +77,7 @@ module {
 
     let item = Database.addAttribute({
       addAttributeInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.KonectAEventTable;
         attribute = {
           name = "status";
@@ -95,7 +95,7 @@ module {
         canistergeekLogger.logMessage("Add status to Konecta table error --->" # debug_show (msg));
         return "Failed to update schema";
       };
-      case (#ok(id)) {
+      case (#ok(_id)) {
         return "Schema updated successfully";
       };
     };
@@ -106,7 +106,7 @@ module {
 
     let item = Database.addAttribute({
       addAttributeInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.RequestAppliedTable;
         attribute = {
           name = "location";
@@ -124,7 +124,7 @@ module {
         canistergeekLogger.logMessage("Add location to request applied table error --->" # debug_show (msg));
         return "Failed to update schema";
       };
-      case (#ok(id)) {
+      case (#ok(_id)) {
         return "Schema updated successfully";
       };
     };

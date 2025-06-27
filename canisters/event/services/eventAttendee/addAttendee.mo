@@ -1,19 +1,17 @@
 import Database "mo:alfangodb/AlfangoDB";
 import Buffer "mo:base/Buffer";
-import Int "mo:base/Int";
 import Result "mo:base/Result";
-import Time "mo:base/Time";
 import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
 import CommonService "../../services/common";
-import ArgumentTypes "../../types/argumentTypes";
 import EventConstants "../../utils/constants";
-import HelperService "../../utils/helper";
+import HelperService "../../../shared/common_utils/helper";
 import GetAttendeeService "../eventAttendee/getAttendee";
+import SharedTypes "../../../shared/types";
+import SharedConstants "../../../shared/constants";
 
 module {
-  public func addEventAttendee(payload : ArgumentTypes.EventAttendeeRequestPayload, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : async Result.Result<Text, Text> {
+  public func addEventAttendee(payload : SharedTypes.EventAttendeeRequestPayload, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : async Result.Result<Text, Text> {
 
     if (GetAttendeeService.checkIfAttendeeExistsForEvent(payload.invitee_user_id, payload.event_id, databases)) {
       #err("User already exists in the event attendee list.");
@@ -38,7 +36,7 @@ module {
       // Create an item in the Event Attendee Table in the database
       let item = await Database.createItem({
         createItemInput = {
-          databaseName = EventConstants.KonectA;
+          databaseName = SharedConstants.KonectA;
           tableName = EventConstants.EventAttendeeTable;
           attributeDataValues = dataValuesArray;
         };

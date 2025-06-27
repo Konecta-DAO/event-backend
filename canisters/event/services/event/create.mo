@@ -1,17 +1,93 @@
 import Database "mo:alfangodb/AlfangoDB";
-import Debug "mo:base/Debug";
 import Principal "mo:base/Principal";
+import Result "mo:base/Result";
 import Canistergeek "mo:canistergeek/canistergeek";
 import D3 "mo:d3storage/D3";
 import Map "mo:map/Map";
-
 import CommonService "../../services/common";
-import EventTable "../../tables/eventTable";
+import DeleteService "./delete";
+import SharedInterfaces "../../../shared/interfaces";
+import SharedConstants "../../../shared/constants";
+import SharedTypes "../../../shared/types";
 import ArgumentTypes "../../types/argumentTypes";
 import Constants "../../utils/constants";
-import { getTupleValueAsText; initializePrincipalField; textToNat } "../../utils/helper";
+import { getTupleValueAsText; initializePrincipalField; textToNat } "../../../shared/common_utils/helper";
 
 module {
+
+  public func createEventAndRegister(
+    userPrincipal : Principal,
+    userCanisterId : Text,
+    payload : ArgumentTypes.CreateEventAndKonectaPayload,
+    databases : Map.Map<Text, Database.Database>,
+    d3 : D3.D3,
+    canistergeekLogger : Canistergeek.Logger,
+  ) : async Result.Result<ArgumentTypes.CreateEventAndKonectaResponse, Text> {
+
+    let eventCreationResult = await createEvent(
+      userPrincipal,
+      userCanisterId,
+      payload.eventPayload,
+      databases,
+      d3,
+      canistergeekLogger,
+    );
+
+    switch (eventCreationResult) {
+      case (#err(errorMsg)) {
+        return #err(errorMsg);
+      };
+
+      case (#ok(eventData)) {
+        let eventId = eventData.id;
+
+        let konectaPayload = payload.konectaPayload;
+        let konectaCanister = actor (SharedConstants.KonectaCanister) : SharedInterfaces.KonectaActor;
+
+        let konectaCreationPayload : SharedTypes.KonectaEventCreationPayload = {
+          user_id = ?Principal.toText(userPrincipal);
+          event_id = eventId;
+          event_type = konectaPayload.event_type;
+          status = payload.eventPayload.status;
+          categories = konectaPayload.categories;
+          consultations = konectaPayload.consultations;
+          expertise = konectaPayload.expertise;
+          price_token = konectaPayload.price_token;
+          token_amount = konectaPayload.token_amount;
+          interests = konectaPayload.interests;
+          metadata = konectaPayload.metadata;
+        };
+
+        let konectaEventId = try {
+          await konectaCanister.createKonectaEvent(userCanisterId, konectaCreationPayload);
+        } catch (_e) {
+          let errorMsg = "Base event created, but failed to register with Konecta. Attempting to roll back.";
+          canistergeekLogger.logMessage(errorMsg);
+
+          let rollbackResult = await DeleteService.deleteEventById(
+            eventData,
+            userCanisterId,
+            databases,
+            d3,
+            canistergeekLogger,
+          );
+
+          switch (rollbackResult) {
+            case (#ok) canistergeekLogger.logMessage("Rollback successful for event: " # eventData.id);
+            case (#err(msg)) canistergeekLogger.logMessage("CRITICAL: Rollback FAILED for event: " # eventData.id # ". Error: " # msg);
+          };
+
+          return #err(errorMsg);
+        };
+        canistergeekLogger.logMessage("Konecta registration response --->" # debug_show (konectaEventId));
+
+        return #ok({
+          eventId = eventId;
+          konectaEventId = konectaEventId;
+        });
+      };
+    };
+  };
 
   public func createEvent(
     userPrincipal : Principal,
@@ -20,8 +96,7 @@ module {
     databases : Map.Map<Text, Database.Database>,
     d3 : D3.D3,
     canistergeekLogger : Canistergeek.Logger,
-  ) : async Text {
-    var response = "";
+  ) : async Result.Result<ArgumentTypes.CreateEventSuccess, Text> {
 
     var language = "";
 
@@ -46,10 +121,12 @@ module {
         case (#StoreFileOutput(file)) {
           coverPhotoUrl := file.fileId;
         };
+        case (#StoreFileChunkOutput(_)) {};
+        case (#StoreFileMetadataOutput(_)) {};
       };
     };
 
-    let status = CommonService.getEventStatus(payload.status, Constants.EventStatus.Created);
+    let status = CommonService.getEventStatus(payload.status, SharedTypes.EventStatus.Created);
 
     var metadata : [(Text, Database.NumericAttributeDataValue or Database.StringAttributeDataValue or Database.ListAttributeDataValue)] = [];
     switch (payload.metadata) {
@@ -75,7 +152,7 @@ module {
 
     let item = await Database.createItem({
       createItemInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventTable;
         attributeDataValues = attributeDataValues;
       };
@@ -85,20 +162,18 @@ module {
 
     switch (item) {
       case (#err(msg)) {
-        response := "Failed to create event";
+        return #err("Failed to create event: " # msg[0]);
       };
       case (#ok(result)) {
 
-        let userCanister = actor (userCanisterId) : CommonService.UserCanisterType;
+        let userCanister = actor (userCanisterId) : SharedInterfaces.UserActor;
 
         let calendarObject = {
           name = getTupleValueAsText(attributeDataValues, "name");
           description = getTupleValueAsText(attributeDataValues, "description");
         };
-        canistergeekLogger.logMessage("Calendar object --->" # debug_show (calendarObject));
 
         let calendarId = await userCanister.upsertCalendarData(Principal.toText(userPrincipal), "", calendarObject);
-        canistergeekLogger.logMessage("Calendar id --->" # debug_show (calendarId));
 
         let eventObject = {
           event_id = result.id;
@@ -108,16 +183,25 @@ module {
           status = payload.status;
           calendar_id = calendarId;
           created_by = userPrincipal;
+          categories = null;
+          interests = null;
         };
-        canistergeekLogger.logMessage("Event object --->" # debug_show (eventObject));
+        let eventMetadataResult = await userCanister.createEventMetaData(eventObject);
 
-        let eventMetadataResponse = await userCanister.createEventMetaData(eventObject);
-        canistergeekLogger.logMessage("Event metadata response --->" # debug_show (eventMetadataResponse));
-        response := result.id;
+        let eventMetadataId = switch (eventMetadataResult) {
+          case (#ok(id)) id;
+          case (#err(msg)) {
+            return #err("Failed to create user event metadata: " # msg);
+          };
+        };
+
+        return #ok({
+          id = result.id;
+          attributes = attributeDataValues;
+          calendarId = calendarId;
+          eventMetadataId = eventMetadataId;
+        });
       };
-
     };
-
-    return response;
   };
 };

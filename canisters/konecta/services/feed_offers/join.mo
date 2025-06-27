@@ -1,20 +1,15 @@
 import Database "mo:alfangodb/AlfangoDB";
-import Array "mo:base/Array";
-import Buffer "mo:base/Buffer";
 import Debug "mo:base/Debug";
-import Int "mo:base/Int";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
-import Time "mo:base/Time";
 import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
 
 import CommonService "../../services/common";
 import KonectaEventReadService "../../services/event/read";
-import ArgumentTypes "../../types/argumentTypes";
 import KonectaConstants "../../utils/constants";
-import { textArrayToString } "../../utils/helper";
+import { textArrayToString } "../../../shared/common_utils/helper";
 
 module {
   // Function to join a public event

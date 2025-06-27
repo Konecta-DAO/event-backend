@@ -6,16 +6,20 @@
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
+import Error "mo:base/Error";
+import Buffer "mo:base/Buffer";
 import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
 import CommonService "services/common";
 import ReadService "services/read";
 import RegisterService "services/register";
 import UpdateService "services/update";
 import UpgradeService "services/upgrade";
 import ArgumentTypes "types/argumentTypes";
-import IndexConstants "utils/constants";
+import SharedConstants "../shared/constants";
+import SharedTypes "../shared/types";
+import SharedInterfaces "../shared/interfaces";
+
 shared ({ caller = initializer }) actor class IndexCanister() = this {
 
   stable var userCanisterMap = Map.new<Principal, Principal>();
@@ -31,7 +35,7 @@ shared ({ caller = initializer }) actor class IndexCanister() = this {
    * @returns An array of Text containing the whitelisted origins.
    */
   public func get_trusted_origins() : async [Text] {
-    return IndexConstants.whiteListedCanisters;
+    return SharedConstants.whiteListedCanisters;
   };
 
   /**
@@ -40,15 +44,18 @@ shared ({ caller = initializer }) actor class IndexCanister() = this {
    * @returns The user canister ID as Text.
    */
   public query (msg) func getUserCanister() : async Text {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     ReadService.getUserCanisterId(msg.caller, userCanisterMap);
   };
 
   public query func getUserCanisterByUserPrincipal(userPrincipal : Text) : async Text {
-    var principal = Principal.fromText(IndexConstants.AnonymousPrincipal);
+    var principal = Principal.fromText(SharedConstants.AnonymousPrincipal);
     try {
       principal := Principal.fromText(userPrincipal);
-    } catch (error) {
-      principal := Principal.fromText(IndexConstants.AnonymousPrincipal);
+    } catch (_error) {
+      principal := Principal.fromText(SharedConstants.AnonymousPrincipal);
     };
     ReadService.getUserCanisterId(principal, userCanisterMap);
   };
@@ -60,6 +67,9 @@ shared ({ caller = initializer }) actor class IndexCanister() = this {
    * @returns A Text indicating the success or failure of the signup process.
    */
   public shared (msg) func signUp(username : Text) : async Text {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     await RegisterService.signUp(username, msg.caller, userCanisterMap, userDataMap);
   };
 
@@ -69,6 +79,9 @@ shared ({ caller = initializer }) actor class IndexCanister() = this {
    * @returns A Bool indicating whether the user canister exists or not.
    */
   public query (msg) func userExistsOrNot() : async Bool {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     ReadService.userExistsOrNot(msg.caller, userCanisterMap);
   };
 
@@ -87,7 +100,7 @@ shared ({ caller = initializer }) actor class IndexCanister() = this {
    * @returns A Text indicating the success or failure of the upgrade process.
    */
   public func upgradeUserCanisters() : async Text {
-    await UpgradeService.upgradeUserCanisters(userCanisterMap, userDataMap, canistergeekLogger);
+    await UpgradeService.upgradeUserCanisters(userCanisterMap);
   };
 
   public func reinstallUserCanisters() : async Text {
@@ -98,8 +111,22 @@ shared ({ caller = initializer }) actor class IndexCanister() = this {
     return ReadService.getListOfUsers(userDataMap);
   };
 
-  public query func findUser(principal : Text) : async ?ArgumentTypes.UserMapPayload {
-    return ReadService.findUser(principal, userDataMap);
+  public composite query func getUsersDataByPrincipal(userIds : [Text]) : async [(Text, ?SharedTypes.UserResponsePayload)] {
+
+    var resultsBuffer = Buffer.Buffer<(Text, ?SharedTypes.UserResponsePayload)>(userIds.size());
+
+    for (userId in userIds.vals()) {
+      let userCanisterId = await getUserCanisterByUserPrincipal(userId);
+      if (userCanisterId != "") {
+        let userCanisterActor = actor (userCanisterId) : SharedInterfaces.UserActor;
+        let userData = await userCanisterActor.getUserForEventCanister(userId);
+        resultsBuffer.add((userId, ?userData));
+      } else {
+        resultsBuffer.add((userId, null));
+      };
+    };
+
+    return Buffer.toArray(resultsBuffer);
   };
 
   public composite query func getUserByUsername(username : Text) : async ?ArgumentTypes.UserPayload {
@@ -115,11 +142,17 @@ shared ({ caller = initializer }) actor class IndexCanister() = this {
 
   };
 
-  public shared func updateUserRecord(principal : Text, values : ArgumentTypes.UpdateUserRequestPayload) : async Text {
+  public shared (msg) func updateUserRecord(principal : Text, values : ArgumentTypes.UpdateUserRequestPayload) : async Text {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     return await UpdateService.updateUserRecord(Principal.fromText(principal), values, userDataMap, userCanisterMap);
   };
 
-  public shared func bulkInsertUsers() : async Result.Result<Text, Text> {
+  public shared (msg) func bulkInsertUsers() : async Result.Result<Text, Text> {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     return await UpdateService.bulkInsertUsers(userDataMap);
   };
 
@@ -148,10 +181,4 @@ shared ({ caller = initializer }) actor class IndexCanister() = this {
 
     canistergeekMonitor.updateInformation(request);
   };
-
-  /* Validate and reject anonymous calls*/
-  // system func inspect({ caller : Principal }) : Bool {
-  //   not (Principal.isAnonymous(caller));
-  // };
-
 };

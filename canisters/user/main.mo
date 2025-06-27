@@ -2,6 +2,7 @@ import Database "mo:alfangodb/AlfangoDB";
 import Cycles "mo:base/ExperimentalCycles";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
+import Error "mo:base/Error";
 import Canistergeek "mo:canistergeek/canistergeek";
 import D3 "mo:d3storage/D3";
 import Map "mo:map/Map";
@@ -21,7 +22,9 @@ import FileUploadService "services/user/fileupload";
 import UserReadService "services/user/read";
 import UserUpsertService "services/user/upsert";
 import ArgumentTypes "types/argumentTypes";
-import UserConstants "utils/constants";
+import SharedConstants "../shared/constants";
+import SharedTypes "../shared/types";
+import Constants "utils/constants";
 
 shared ({ caller = initializer }) actor class UserCanister() = this {
 
@@ -37,7 +40,7 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
   stable var _canistergeekLoggerUD : ?Canistergeek.LoggerUpgradeData = null;
 
   public query func get_trusted_origins() : async [Text] {
-    return UserConstants.whiteListedCanisters;
+    return SharedConstants.whiteListedCanisters;
   };
 
   public query func getCurrentCanisterPrincipal() : async Text {
@@ -45,18 +48,30 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
   };
 
   public query (msg) func getAccountIdentifier() : async Text {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     icPCHUtils.blobToHex(Account.accountIdentifier(msg.caller, Account.defaultSubaccount()));
   };
 
   public shared (msg) func upsertUser(payload : ArgumentTypes.UserRequestPayload) : async Text {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     await UserUpsertService.upsertUser(msg.caller, userDataMap, payload, Principal.fromActor(this));
   };
 
-  public shared func updateUserRecord(principal : Text, values : ArgumentTypes.UpdateUserRecordPayload) : async Text {
+  public shared (msg) func updateUserRecord(principal : Text, values : ArgumentTypes.UpdateUserRecordPayload) : async Text {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     return await UserUpsertService.updateUserRecord(Principal.fromText(principal), values, userDataMap);
   };
 
   public query (msg) func getUser() : async ?ArgumentTypes.UserPayload {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     UserReadService.getUserDataByPrincipalId(msg.caller, userDataMap);
   };
 
@@ -84,7 +99,7 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
       let _calendarTableResponse = await createCalendarTable();
       let _eventMetadataTableResponse = await createEventMetadataTable();
       return "Tables created successfully";
-    } catch (e : Error) {
+    } catch (_e : Error) {
       return "Failed to create tables";
     };
   };
@@ -93,7 +108,10 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
     await CalendarSchemaService.createCalendarTable(databases);
   };
 
-  public shared func upsertCalendarData(userPrincipal : Text, calendarId : Text, calendarPayload : ArgumentTypes.CalendarRequestPayload) : async Text {
+  public shared (msg) func upsertCalendarData(userPrincipal : Text, calendarId : Text, calendarPayload : SharedTypes.CalendarRequestPayload) : async Text {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     canistergeekMonitor.collectMetrics();
     await CalendarUpsertService.upsertCalendarData(userPrincipal, calendarId, calendarPayload, userDataMap, databases, canistergeekLogger);
   };
@@ -107,14 +125,50 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
     return response;
   };
 
-  public shared func createEventMetaData(eventMetadataPayload : ArgumentTypes.EventMetadataRequestPayload) : async Result.Result<Text, Text> {
+  public shared (msg) func createEventMetaData(eventMetadataPayload : ArgumentTypes.EventMetadataRequestPayload) : async Result.Result<Text, Text> {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     canistergeekMonitor.collectMetrics();
     await EventMetadataCreateService.createEventMetaData(eventMetadataPayload, databases, canistergeekLogger);
   };
 
-  public shared (msg) func updateEventMetaData(eventMetadataId : Text, eventMetadataPayload : ArgumentTypes.EventMetadataRequestPayload) : async Text {
+  public shared (msg) func updateEventMetaData(eventMetadataId : Text, eventMetadataPayload : SharedTypes.UpdateEventMetadataPayload) : async Text {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     canistergeekMonitor.collectMetrics();
     await EventMetadataUpdateService.updateEventMetaData(msg.caller, eventMetadataId, eventMetadataPayload, databases, canistergeekLogger);
+  };
+
+  public shared (msg) func deleteEventMetaData(eventMetadataId : Text) : async () {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
+
+    ignore Database.deleteItem({
+      deleteItemInput = {
+        databaseName = SharedConstants.KonectA;
+        tableName = Constants.EventMetadataTable;
+        id = eventMetadataId;
+      };
+      alfangoDB = { databases };
+    });
+  };
+
+  public shared (msg) func deleteCalendarData(calendarId : Text) : async () {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
+    // Similar to above, this would call a service.
+    ignore Database.deleteItem({
+      deleteItemInput = {
+        databaseName = SharedConstants.KonectA;
+        tableName = Constants.CalendarTable;
+        id = calendarId;
+      };
+      alfangoDB = { databases };
+    });
   };
 
   public query func getEventMetadataId(eventId : Text, calendarId : Text) : async Text {
@@ -137,11 +191,17 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
     EventMetadataReadService.getEventMetaDataFromStartToEndDate(startDate, endDate, categories, databases);
   };
 
-  public shared func upsertUserPublic(pid : Text, payload : ArgumentTypes.UserRequestPayload) : async Text {
+  public shared (msg) func upsertUserPublic(pid : Text, payload : ArgumentTypes.UserRequestPayload) : async Text {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     await UserUpsertService.upsertUser(Principal.fromText(pid), userDataMap, payload, Principal.fromActor(this));
   };
 
-  public shared func saveFile(file : D3.StoreFileInputType) : async Text {
+  public shared (msg) func saveFile(file : D3.StoreFileInputType) : async Text {
+    if (Principal.isAnonymous(msg.caller)) {
+      throw Error.reject("Anonymous callers are not allowed to perform this action.");
+    };
     await FileUploadService.saveFile(file, d3);
   };
 
@@ -181,7 +241,6 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
     canistergeekLogger.postupgrade(_canistergeekLoggerUD);
     _canistergeekLoggerUD := null;
 
-    //Optional: override default number of log messages to your value
     canistergeekLogger.setMaxMessagesCount(3000);
   };
 
@@ -197,7 +256,7 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
 
   public shared (msg) func fetchCanisterStatus(auxPrincipalId : ?Principal) : async Cygnus.CanisterStatus {
     let cygnusClass = Cygnus.Cygnus();
-    //  cygnusClass.validateUser(msg.caller, auxPrincipalId);
+    cygnusClass.validateUser(msg.caller, auxPrincipalId); // Comment for dev
     await cygnusClass.getStatus(Principal.fromActor(this));
   };
 
@@ -206,13 +265,7 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
     cygnusClass.validateUser(msg.caller, null);
     let sendablelimit : Nat = Cycles.balance();
     let sendableCycles = if (withdrawAmount <= sendablelimit) withdrawAmount else sendablelimit;
-    Cycles.add(sendableCycles);
-    await cygnusClass.CygnusCanitser.acceptWithdrwalCyclesFromOtherCanitsers();
+    Cycles.add<system>(sendableCycles);
+    await cygnusClass.CygnusCanister.acceptWithdrwalCyclesFromOtherCanisters();
   };
-
-  /* Validate and reject anonymous calls*/
-  // system func inspect({ caller : Principal }) : Bool {
-  //   not (Principal.isAnonymous(caller));
-  // };
-
 };

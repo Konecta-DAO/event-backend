@@ -1,10 +1,10 @@
 import Database "mo:alfangodb/AlfangoDB";
-import Buffer "mo:base/Buffer";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import D3 "mo:d3storage/D3";
 import Map "mo:map/Map";
-
+import SharedConstants "../../../shared/constants";
+import SharedTypes "../../../shared/types";
 import CommonService "../../services/common";
 import ArgumentTypes "../../types/argumentTypes";
 import Constants "../../utils/constants";
@@ -22,7 +22,7 @@ module {
   private func getEventDataByPrincipalId(userPrincipal : Principal, databases : Map.Map<Text, Database.Database>) : Result.Result<[ArgumentTypes.EventResponsePayload], [Text]> {
     let eventResponse = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventTable;
         filterExpressions = [
           {
@@ -31,7 +31,7 @@ module {
           },
           {
             attributeName = "status";
-            filterExpressionCondition = #NEQ(#text(Constants.EventStatus.Canceled));
+            filterExpressionCondition = #NEQ(#text(SharedTypes.EventStatus.Canceled));
           },
         ];
       };
@@ -41,49 +41,23 @@ module {
     return CommonService.transformGetAllEventsResponse(eventResponse);
   };
 
-  public func eventDataById(eventId : Text, databases : Map.Map<Text, Database.Database>) : Result.Result<ArgumentTypes.EventResponsePayload, [Text]> {
+  public func eventDetailsWithUserData(eventId : Text, databases : Map.Map<Text, Database.Database>) : async Result.Result<SharedTypes.EventDetailsPayload, [Text]> {
     let eventResponse = Database.getItemById({
       getItemByIdInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventTable;
         id = eventId;
       };
       alfangoDB = { databases };
     });
 
-    return CommonService.transformGetEventResponse(eventResponse);
-  };
-
-  public func eventDetailsWithUserData(eventId : Text, databases : Map.Map<Text, Database.Database>) : async ArgumentTypes.EventWithUserDataPayload {
-    let eventResponse = Database.getItemById({
-      getItemByIdInput = {
-        databaseName = Constants.KonectA;
-        tableName = Constants.EventTable;
-        id = eventId;
-      };
-      alfangoDB = { databases };
-    });
-
-    let eventData = await CommonService.transformGetEventResponseAsync(eventResponse);
-
-    switch (eventData) {
-      case (#ok(eventData)) {
-        return eventData;
-      };
-      case (#err(err)) {
-        return CommonService.initialEventObjectWithUserData;
-      };
-    };
+    return await CommonService.transformGetEventResponseAsync(eventResponse);
   };
 
   public func eventTableMetadata(databases : Map.Map<Text, Database.Database>) : Database.GetTableMetadataOutputType {
     Database.getTableMetadata({
       getTableMetadataInput = {
-        databaseName = Constants.KonectA;
-        metadata = {
-          databaseName = Constants.KonectA;
-          tableName = Constants.EventTable;
-        };
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventTable;
       };
       alfangoDB = { databases };

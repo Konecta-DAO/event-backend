@@ -1,11 +1,10 @@
 import Cycles "mo:base/ExperimentalCycles";
 import Principal "mo:base/Principal";
 import Map "mo:map/Map";
-
+import SharedConstants "../../shared/constants";
 import UserCanisterActor "../../user/main";
-import CygnusCanitser "../client/cygnus";
+import CygnusCanister "../client/cygnus";
 import ArgumentTypes "../types/argumentTypes";
-import Constants "../utils/constants";
 import { getUserCanisterId; isUsernamePresent; userExistsOrNot } "./read";
 
 module {
@@ -42,8 +41,8 @@ module {
           response := canisterId;
         };
 
-        let cygnusCanitserActor = actor ("dowzh-nyaaa-aaaai-qnowq-cai") : CygnusCanitser.Self;
-        let _registerCanister = await cygnusCanitserActor.registerProjectCanister({
+        let cygnusCanisterActor = actor ("dowzh-nyaaa-aaaai-qnowq-cai") : CygnusCanister.Self;
+        let _registerCanister = await cygnusCanisterActor.registerProjectCanister({
           projectId = "upr_0PG5GJMG12G6RGWJHPT3DW1B3X";
           canisterIdToBeRegistered = response;
           canisterName = username;
@@ -62,7 +61,7 @@ module {
   private func registerUserCanister() : async ?Principal {
 
     // 3T cycles required to create a child actor
-    Cycles.add(Constants.DefaultCycles);
+    Cycles.add<system>(SharedConstants.DefaultCycles);
     let default_settings = { settings = null };
     let childActor = await (system UserCanisterActor.UserCanister)(#new default_settings)();
     let _schemaResponse = childActor.generateSchema();

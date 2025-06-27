@@ -1,7 +1,7 @@
 import Database "mo:alfangodb/AlfangoDB";
 import Text "mo:base/Text";
 import Map "mo:map/Map";
-
+import SharedConstants "../../../shared/constants";
 import EventMetadataTable "../../tables/eventMetadataTable";
 import Constants "../../utils/constants";
 
@@ -10,7 +10,7 @@ module {
 
     let item = Database.createTable({
       createTableInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         name = Constants.EventMetadataTable;
         attributes = EventMetadataTable.EventMetadataTableAttributes;
         indexes = [];
@@ -19,10 +19,10 @@ module {
     });
 
     switch (item) {
-      case (#err(msg)) {
+      case (#err(_msg)) {
         return "Failed to create " # Constants.EventMetadataTable # " database";
       };
-      case (#ok(id)) {
+      case (#ok(_id)) {
         return Constants.EventMetadataTable # "table created successfully";
       };
     };
@@ -33,7 +33,7 @@ module {
 
     let item = Database.addAttribute({
       addAttributeInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventMetadataTable;
         attribute = {
           name = "status";
@@ -47,10 +47,10 @@ module {
     });
 
     switch (item) {
-      case (#err(msg)) {
+      case (#err(_msg)) {
         return "Failed to update schema";
       };
-      case (#ok(id)) {
+      case (#ok(_id)) {
         return "Schema updated successfully";
       };
     };

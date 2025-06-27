@@ -4,7 +4,7 @@ import Map "mo:map/Map";
 
 import UserReadService "../../services/user/read";
 import ArgumentTypes "../../types/argumentTypes";
-import { initializeTextArrayField; initializeTextField } "../../utils/helper";
+import { initializeTextArrayField; initializeTextField } "../../../shared/common_utils/helper";
 module {
 
   public func upsertUser(

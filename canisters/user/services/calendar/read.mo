@@ -1,21 +1,16 @@
 import Database "mo:alfangodb/AlfangoDB";
-import Buffer "mo:base/Buffer";
-import Debug "mo:base/Debug";
 import Principal "mo:base/Principal";
 import Text "mo:base/Text";
-import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
-import CalendarTable "../../tables/calendarTable";
-import ArgumentTypes "../../types/argumentTypes";
 import Constants "../../utils/constants";
-import { getTupleValueAsText } "../../utils/helper";
+import SharedConstants "../../../shared/constants";
+import { getTupleValueAsText } "../../../shared/common_utils/helper";
 
 module {
   public func getCalendarId(eventId : Text, databases : Map.Map<Text, Database.Database>) : Text {
     let result = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventMetadataTable;
         filterExpressions = [{
           attributeName = "event_id";
@@ -31,18 +26,18 @@ module {
         return calendarId;
       };
 
-      case (#err(error)) {
+      case (#err(_error)) {
         return "Failed to find calendar id";
       };
     };
   };
 
-  public func checkIfCalendarExistsForEventForUser(userPrincipal : Principal, eventId : Text, databases : Map.Map<Text, Database.Database>) : Bool {
+  public func checkIfCalendarExistsForEventForUser(_userPrincipal : Principal, eventId : Text, databases : Map.Map<Text, Database.Database>) : Bool {
     var exists = false;
 
     let calendarResponse = Database.scan({
       scanInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventMetadataTable;
         filterExpressions = [{
           attributeName = "event_id";
@@ -64,7 +59,7 @@ module {
         return exists;
       };
 
-      case (#err(err)) exists := false;
+      case (#err(_err)) exists := false;
     };
 
     return exists;
@@ -73,11 +68,7 @@ module {
   public func getCalendarTableMetadata(databases : Map.Map<Text, Database.Database>) : Database.GetTableMetadataOutputType {
     Database.getTableMetadata({
       getTableMetadataInput = {
-        databaseName = Constants.KonectA;
-        metadata = {
-          databaseName = Constants.KonectA;
-          tableName = Constants.CalendarTable;
-        };
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.CalendarTable;
       };
       alfangoDB = { databases };

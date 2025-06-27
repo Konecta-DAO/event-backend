@@ -1,6 +1,4 @@
 import Database "mo:alfangodb/AlfangoDB";
-import Array "mo:base/Array";
-import Bool "mo:base/Bool";
 import Buffer "mo:base/Buffer";
 import Debug "mo:base/Debug";
 import Principal "mo:base/Principal";
@@ -8,21 +6,19 @@ import Result "mo:base/Result";
 import Canistergeek "mo:canistergeek/canistergeek";
 import D3 "mo:d3storage/D3";
 import Map "mo:map/Map";
-
+import SharedInterfaces "../../../shared/interfaces";
+import SharedConstants "../../../shared/constants";
+import SharedTypes "../../../shared/types";
 import CommonService "../../services/common";
 import { getAllAttendeesIds } "../../services/eventAttendee/getAttendee";
-import EventTable "../../tables/eventTable";
 import ArgumentTypes "../../types/argumentTypes";
 import Constants "../../utils/constants";
+import Helper "../../utils/helper";
 import {
-  getAttributeDataValue;
-  getStringAttributeDataValueArray;
   getTupleValueAsText;
   initializePrincipalField;
-  initializeTextArrayField;
   textArrayToString;
-  textToNat;
-} "../../utils/helper";
+} "../../../shared/common_utils/helper";
 import { eventDataById } "./read";
 
 module {
@@ -42,7 +38,7 @@ module {
       case (#ok(event)) {
         oldValues := event;
       };
-      case (#err(errorMessage)) ();
+      case (#err(_errorMessage)) ();
     };
 
     var coverPhotoUrl = oldValues.coverphoto;
@@ -61,6 +57,8 @@ module {
         case (#StoreFileOutput(file)) {
           coverPhotoUrl := file.fileId;
         };
+        case (#StoreFileChunkOutput(_)) {};
+        case (#StoreFileMetadataOutput(_)) {};
       };
     };
 
@@ -98,7 +96,7 @@ module {
 
     let item = Database.updateItem({
       updateItemInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.EventTable;
         id = eventId;
         attributeDataValues = attributeDataValues;
@@ -109,12 +107,12 @@ module {
 
     var response = "";
     switch (item) {
-      case (#err(msg)) {
+      case (#err(_msg)) {
         #err("Failed to update event");
       };
       case (#ok(result)) {
 
-        let userCanister = actor (userCanisterId) : CommonService.UserCanisterType;
+        let userCanister = actor (userCanisterId) : SharedInterfaces.UserActor;
 
         let calendarId = await userCanister.getCalendarId(eventId);
         let eventMetadataId = await userCanister.getEventMetadataId(eventId, calendarId);
@@ -129,13 +127,11 @@ module {
 
         let eventObject = {
           event_id = result.id;
-          name = getTupleValueAsText(attributeDataValues, "name");
-          start_date = textToNat(getTupleValueAsText(attributeDataValues, "start_date"));
-          end_date = textToNat(getTupleValueAsText(attributeDataValues, "end_date"));
-          status = payload.status;
-          calendar_id = calendarId;
-          created_by = userPrincipal;
+          status = ?payload.status;
+          categories = null;
+          interests = null;
         };
+
         canistergeekLogger.logMessage("Event object --->" # debug_show (eventObject));
 
         let eventMetadataResponse = await userCanister.updateEventMetaData(eventMetadataId, eventObject);
@@ -167,7 +163,7 @@ module {
           ("location", #text(eventData.location)),
           ("start_date", #nat(eventData.start_date)),
           ("end_date", #nat(eventData.end_date)),
-          ("status", #text(Constants.EventStatus.Canceled)),
+          ("status", #text(SharedTypes.EventStatus.Canceled)),
           ("coverphoto", #text(eventData.coverphoto)),
           ("language", #text(eventData.language)),
           ("metadata", #map(eventData.metadata)),
@@ -176,7 +172,7 @@ module {
 
         let item = Database.updateItem({
           updateItemInput = {
-            databaseName = Constants.KonectA;
+            databaseName = SharedConstants.KonectA;
             tableName = Constants.EventTable;
             id = eventId;
             attributeDataValues = attributeDataValues;
@@ -195,40 +191,29 @@ module {
         switch (attendeeIdsResponse) {
           case (#ok(attendeeIds)) {
             let attendeeIdsBuffer : Buffer.Buffer<Text> = Buffer.fromArray(attendeeIds);
-            canistergeekLogger.logMessage("Attendee Ids --->" # debug_show (attendeeIds));
-
             userIdBuffer.append(attendeeIdsBuffer);
-
             let userIdArray = Buffer.toArray(userIdBuffer);
-            canistergeekLogger.logMessage("User Id array --->" # debug_show (userIdArray));
+            canistergeekLogger.logMessage("Final User Id array for notification --->" # debug_show (userIdArray));
 
-            for (userId in userIdArray.vals()) {
-              let userCanisterId = await CommonService.getUserCanisterId(userId);
-              canistergeekLogger.logMessage("User Canister Id --->" # debug_show (userCanisterId));
-
-              let userCanister = actor (userCanisterId) : CommonService.UserCanisterType;
-              let calendarId = await userCanister.getCalendarId(eventId);
-              canistergeekLogger.logMessage("Calendar Id --->" # debug_show (calendarId));
-
-              let eventMetadataId = await userCanister.getEventMetadataId(eventId, calendarId);
-              canistergeekLogger.logMessage("Event metadata id --->" # debug_show (eventMetadataId));
-
-              let eventObject = {
-                calendar_id = calendarId;
-                created_by = Principal.fromText(userId);
-                end_date = eventData.end_date;
-                name = eventData.name;
-                start_date = eventData.start_date;
-                event_id = eventId;
-                status = Constants.EventStatusVariant.Canceled;
-              };
-              canistergeekLogger.logMessage("Event object --->" # debug_show (eventObject));
-
-              let eventMetadataResponse = await userCanister.updateEventMetaData(eventMetadataId, eventObject);
-              canistergeekLogger.logMessage("Event metadata response --->" # debug_show (eventMetadataResponse));
+            let eventObject : SharedTypes.UpdateEventMetadataPayload = {
+              event_id = eventId;
+              status = ?SharedTypes.EventStatusVariant.Canceled;
+              categories = null;
+              interests = null;
             };
 
-            #ok("Event canceled successfully");
+            var cancellationPromisesBuffer = Buffer.Buffer<async ()>(userIdArray.size());
+            for (userId in userIdArray.vals()) {
+              cancellationPromisesBuffer.add(Helper.cancelEventForUser(userId, eventId, eventObject, canistergeekLogger));
+            };
+
+            let cancellationPromises = Buffer.toArray(cancellationPromisesBuffer);
+
+            for (promise in cancellationPromises.vals()) {
+              await promise;
+            };
+
+            return #ok("Event cancellation processed for all attendees.");
           };
           case (#err(error)) {
             return #err(textArrayToString(error));
@@ -238,6 +223,5 @@ module {
       };
       case (#err(error)) #err(textArrayToString(error));
     };
-
   };
 };

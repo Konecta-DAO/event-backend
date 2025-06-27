@@ -18,15 +18,6 @@ module {
     return canisterId;
   };
 
-  public func findUser(userPrincipal : Text, userDataMap : Map.Map<Principal, ArgumentTypes.UserMapPayload>) : ?ArgumentTypes.UserMapPayload {
-    Map.get(
-      userDataMap,
-      Map.phash,
-      Principal.fromText(userPrincipal),
-    );
-
-  };
-
   public func userExistsOrNot(userPrincipal : Principal, userCanisterMap : Map.Map<Principal, Principal>) : Bool {
     return Map.has(userCanisterMap, Map.phash, userPrincipal);
   };
@@ -69,7 +60,7 @@ module {
       case (null) {
         exists := false;
       };
-      case (user) {
+      case (_user) {
         exists := true;
       };
     };

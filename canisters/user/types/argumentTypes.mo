@@ -1,13 +1,7 @@
-import Database "mo:alfangodb/AlfangoDB/types/database";
-import Datatype "mo:alfangodb/AlfangoDB/types/datatype";
 import Principal "mo:base/Principal";
+import SharedTypes "../../shared/types";
 
 module {
-
-  public type EventStatus = {
-    #Created;
-    #Canceled;
-  };
 
   public type UserPayload = {
     id : Text;
@@ -63,7 +57,7 @@ module {
     interests : ?[Text];
     start_date : ?Nat;
     end_date : ?Nat;
-    status : EventStatus;
+    status : SharedTypes.EventStatus;
     created_by : ?Principal;
   };
 
@@ -77,11 +71,6 @@ module {
     end_date : Nat;
     status : Text;
     created_by : Text;
-  };
-
-  public type CalendarRequestPayload = {
-    name : Text;
-    description : Text;
   };
 
   public type CalendarResponsesPayload = {

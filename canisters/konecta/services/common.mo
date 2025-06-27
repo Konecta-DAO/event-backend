@@ -1,51 +1,28 @@
 import Database "mo:alfangodb/AlfangoDB";
 import Buffer "mo:base/Buffer";
 import Debug "mo:base/Debug";
-import Error "mo:base/Error";
-import Float "mo:base/Float";
 import Int "mo:base/Int";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
 import Canistergeek "mo:canistergeek/canistergeek";
-
+import SharedConstants "../../shared/constants";
+import SharedInterfaces "../../shared/interfaces";
+import SharedTypes "../../shared/types";
+import SharedServices "../../shared/services";
 import ArgumentTypes "../types/argumentTypes";
 import Constants "../utils/constants";
 import {
-  getAttributeDataValue;
   getFloatFromAttributeDataValueArray;
   getTextArrayFromAttributeDataValueArray;
   getTupleArrayFromAttributeDataValueArray;
   getTupleValue;
   getTupleValueAsText;
   textToFloat;
-  textToNat;
-} "../utils/helper";
+} "../../shared/common_utils/helper";
 
 module {
-
-  // Define the types for the user and event canisters
-  public type UserCanisterType = actor {
-    createEventMetaData : (metadata : ArgumentTypes.CreateEventMetadataRequestPayload) -> async Result.Result<Text, Text>;
-    updateEventMetaData : (eventMetadataId : Text, metadata : ArgumentTypes.UpdateEventMetadataPayload) -> async Text;
-    getCalendarId : (eventId : Text) -> async Text;
-    getEventMetadataId : (eventId : Text, calendarId : Text) -> async Text;
-    upsertCalendarData : (userPrincipal : Text, calendarId : Text, calendarData : ArgumentTypes.CalendarRequestPayload) -> async Text;
-    getUserForEventCanister : shared query (userPrincipal : Text) -> async ArgumentTypes.UserResponsePayload;
-  };
-
-  public type EventCanisterType = actor {
-    addEventAttendee : (payload : ArgumentTypes.EventAttendeeRequestPayload) -> async Result.Result<Text, Text>;
-    cancelEvent : (userPrincipal : Principal, eventId : Text) -> async Result.Result<Text, Text>;
-    checkIfAttendeeExistsForEvent : shared query (userPrincipal : Principal, eventId : Text) -> async Bool;
-    getEventsForAttendee : shared query (userPrincipal : Text) -> async Result.Result<[Text], [Text]>;
-    updateEventUsingUserPrincipal : (userPrincipal : Principal, userCanisterId : Text, eventId : Text, payload : ArgumentTypes.EventCanisterRequestPayload) -> async Result.Result<Text, Text>;
-  };
-
-  public type IndexActor = actor {
-    getUserCanisterByUserPrincipal : shared query (principal : Text) -> async Text;
-  };
 
   public func getEventType(action : ArgumentTypes.EventType, initialValue : Text) : Text {
     var eventType = initialValue;
@@ -58,26 +35,26 @@ module {
     return eventType;
   };
 
-  public func getEventStatus(action : ArgumentTypes.EventStatus, initialValue : Text) : Text {
+  public func getEventStatus(action : SharedTypes.EventStatus, initialValue : Text) : Text {
     var status = initialValue;
 
     switch (action) {
-      case (#Created) status := Constants.EventStatus.Created;
-      case (#Canceled) status := Constants.EventStatus.Canceled;
+      case (#Created) status := SharedTypes.EventStatus.Created;
+      case (#Canceled) status := SharedTypes.EventStatus.Canceled;
     };
 
     return status;
   };
 
-  public func getActionType(action : ArgumentTypes.EventAttendeeActions) : Text {
+  public func getActionType(action : SharedTypes.EventAttendeeActions) : Text {
     var actionType = "";
 
     switch (action) {
-      case (#Applied) actionType := Constants.EventAttendeeStatus.Applied;
-      case (#Joined) actionType := Constants.EventAttendeeStatus.Joined;
-      case (#Invited) actionType := Constants.EventAttendeeStatus.Invited;
-      case (#Accepted) actionType := Constants.EventAttendeeStatus.Accepted;
-      case (#Declined) actionType := Constants.EventAttendeeStatus.Declined;
+      case (#Applied) actionType := SharedTypes.EventAttendeeStatus.Applied;
+      case (#Joined) actionType := SharedTypes.EventAttendeeStatus.Joined;
+      case (#Invited) actionType := SharedTypes.EventAttendeeStatus.Invited;
+      case (#Accepted) actionType := SharedTypes.EventAttendeeStatus.Accepted;
+      case (#Declined) actionType := SharedTypes.EventAttendeeStatus.Declined;
     };
 
     return actionType;
@@ -220,7 +197,7 @@ module {
       case (#ok(value)) {
         amount := value;
       };
-      case (#err(error)) {
+      case (#err(_error)) {
         amount := 0.0;
       };
     };
@@ -244,10 +221,10 @@ module {
   };
 
   // Function to get event details
-  public func getEventDetails(eventId : Text) : async ArgumentTypes.EventProtocolCanisterPayload {
+  public func getEventDetails(eventId : Text) : async SharedTypes.EventDetailsPayload {
 
-    let eventCanisterActor = actor (Constants.EventCanister) : actor {
-      getEventDetailsWithUserData : (eventId : Text) -> async ArgumentTypes.EventProtocolCanisterPayload;
+    let eventCanisterActor = actor (SharedConstants.EventCanister) : actor {
+      getEventDetailsWithUserData : (eventId : Text) -> async SharedTypes.EventDetailsPayload;
     };
 
     let eventData = await eventCanisterActor.getEventDetailsWithUserData(eventId);
@@ -287,25 +264,9 @@ module {
     return Buffer.toArray(eventBuffer);
   };
 
-  // Function to get the user canister ID
-  public func getUserCanisterId(userId : Text) : async Text {
-    let indexActor = actor (Constants.IndexCanister) : IndexActor;
-    return await indexActor.getUserCanisterByUserPrincipal(userId);
-  };
-
-  // Function to get user details
-  public func getUserDetails(userId : Text) : async ArgumentTypes.UserResponsePayload {
-    let userCanisterId = await getUserCanisterId(userId);
-
-    let userCanisterActor = actor (userCanisterId) : UserCanisterType;
-    let userData = await userCanisterActor.getUserForEventCanister(userId);
-
-    return userData;
-  };
-
   // Function to create event metadata
   public func createEventMetadataMethod(creatorPrincipal : Principal, userIdOfApplicant : Principal, userCanisterId : Text, payload : ArgumentTypes.FeedResponsePayload, canistergeekLogger : Canistergeek.Logger) : async Result.Result<Text, Text> {
-    let userCanister = actor (userCanisterId) : UserCanisterType;
+    let userCanister = actor (userCanisterId) : SharedInterfaces.UserActor;
     Debug.print(debug_show ("User canister --->" # userCanisterId));
 
     let calendarObject = {
@@ -325,10 +286,10 @@ module {
       start_date = payload.start_date;
       end_date = payload.end_date;
       calendar_id = calendarId;
-      status = Constants.EventStatusVariant.Created;
+      status = SharedTypes.EventStatusVariant.Created;
       created_by = creatorPrincipal;
-      categories = payload.categories;
-      interests = payload.interests;
+      categories = ?payload.categories;
+      interests = ?payload.interests;
     };
     Debug.print(debug_show ("Event object --->" # debug_show (eventObject)));
     canistergeekLogger.logMessage("Event object --->" # debug_show (eventObject));
@@ -340,12 +301,12 @@ module {
     return eventMetadataResponse;
   };
 
-  public func addEventAttendee(creatorPrincipal : Principal, userIdOfApplicant : Principal, action : ArgumentTypes.EventAttendeeActions, feedData : ArgumentTypes.FeedResponsePayload, canistergeekLogger : Canistergeek.Logger) : async Result.Result<Bool, Text> {
+  public func addEventAttendee(creatorPrincipal : Principal, userIdOfApplicant : Principal, action : SharedTypes.EventAttendeeActions, feedData : ArgumentTypes.FeedResponsePayload, canistergeekLogger : Canistergeek.Logger) : async Result.Result<Bool, Text> {
 
-    let eventCanisterActor = actor (Constants.EventCanister) : EventCanisterType;
+    let eventCanisterActor = actor (SharedConstants.EventCanister) : SharedInterfaces.EventActor;
     try {
       // Get the user's canister ID
-      let userCanisterId = await getUserCanisterId(Principal.toText(userIdOfApplicant));
+      let userCanisterId = await SharedServices.getUserCanisterId(Principal.toText(userIdOfApplicant));
       canistergeekLogger.logMessage("User Canister Id --->" # debug_show (userCanisterId));
 
       // Create event metadata
@@ -362,7 +323,7 @@ module {
       canistergeekLogger.logMessage("Add Event Attendee To Event Attendee Table --->" # debug_show (addEventAttendeeResponse));
 
       switch (addEventAttendeeResponse) {
-        case (#ok(response)) {
+        case (#ok(_response)) {
           #ok(true);
         };
         case (#err(error)) {

@@ -54,7 +54,7 @@ module {
       case (null) {
         exists := false;
       };
-      case (user) {
+      case (_user) {
         exists := true;
       };
     };

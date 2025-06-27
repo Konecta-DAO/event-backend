@@ -2,16 +2,17 @@ import Database "mo:alfangodb/AlfangoDB";
 import Nat "mo:base/Nat";
 import Principal "mo:base/Principal";
 import Text "mo:base/Text";
-import Time "mo:base/Time";
-import Map "mo:map/Map";
-
+import SharedTypes "../../shared/types";
+import KonectaTypes "../../konecta/types/argumentTypes";
 module {
 
-  public type EventStatus = {
-    #Created;
-    #Canceled;
+ public type CreateEventSuccess = {
+    id : Text;
+    attributes : [(Text, Database.AttributeDataValue)];
+    calendarId: Text;
+    eventMetadataId: Text;
   };
-
+  
   public type EventResponsePayload = {
     event_id : Text;
     user_id : Text;
@@ -24,21 +25,6 @@ module {
     language : Text;
     status : Text;
     metadata : [(Text, Database.NumericAttributeDataValue or Database.StringAttributeDataValue or Database.ListAttributeDataValue)];
-  };
-
-  public type EventWithUserDataPayload = {
-    event_id : Text;
-    user_id : Text;
-    coverphoto : Text;
-    name : Text;
-    description : Text;
-    location : Text;
-    start_date : Nat;
-    end_date : Nat;
-    language : Text;
-    status : Text;
-    metadata : [(Text, Database.NumericAttributeDataValue or Database.StringAttributeDataValue or Database.ListAttributeDataValue)];
-    userData : UserResponsePayload;
   };
 
   public type EventRequestPayload = {
@@ -54,7 +40,7 @@ module {
     start_date : Nat; // unix time in nanoseconds
     end_date : Nat; // unix time in nanoseconds
     language : ?Text;
-    status : EventStatus;
+    status : SharedTypes.EventStatus;
     metadata : ?[(Text, Database.NumericAttributeDataValue or Database.StringAttributeDataValue or Database.ListAttributeDataValue)];
   };
 
@@ -64,44 +50,39 @@ module {
     start_date : Nat;
     end_date : Nat;
     calendar_id : Text;
-    status : EventStatus;
+    status : SharedTypes.EventStatus;
     created_by : Principal;
   };
 
-  public type CalendarRequestPayload = {
-    name : Text;
-    description : Text;
-  };
-
-  public type UserResponsePayload = {
-    id : Text;
-    principal_id : Text;
-    canister_id : Text;
-    firstname : Text;
-    lastname : Text;
-    username : Text;
-    email : Text;
-    bio : Text;
+  /**
+    * The Konecta-specific data needed for the combined creation call.
+    * Note it does NOT include event_id or status, as those are generated
+    * during the base event creation.
+    */
+  public type KonectaDataForCombinedCreate = {
+    event_type : KonectaTypes.EventType; // Re-use the variant from Konecta's types
     categories : [Text];
-    profilepic : Text;
-    coverphoto : Text;
-    country : Text;
-    timezone : Text;
+    consultations : ?[Text];
+    expertise : ?Text;
+    price_token : ?KonectaTypes.Token; // Re-use the variant from Konecta's types
+    token_amount : ?Float;
+    interests : ?[Text];
+    metadata : ?[(Text, Database.NumericAttributeDataValue or Database.StringAttributeDataValue or Database.ListAttributeDataValue)];
   };
 
-  public type EventAttendeeActions = {
-    #Applied;
-    #Invited;
-    #Accepted;
-    #Joined;
-    #Declined;
+  /**
+    * The single payload from the frontend for the new combined function.
+    */
+  public type CreateEventAndKonectaPayload = {
+    eventPayload : EventRequestPayload;
+    konectaPayload : KonectaDataForCombinedCreate;
   };
 
-  public type EventAttendeeRequestPayload = {
-    event_id : Text;
-    invitee_user_id : Principal;
-    action : EventAttendeeActions;
-    timestamp : Nat;
+  /**
+    * The successful response type for the new combined function.
+    */
+  public type CreateEventAndKonectaResponse = {
+    eventId : Text;
+    konectaEventId : Text;
   };
-
 };

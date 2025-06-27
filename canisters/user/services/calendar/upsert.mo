@@ -1,22 +1,20 @@
 import Database "mo:alfangodb/AlfangoDB";
 import Buffer "mo:base/Buffer";
-import Debug "mo:base/Debug";
 import Principal "mo:base/Principal";
 import Text "mo:base/Text";
 import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
-import CalendarTable "../../tables/calendarTable";
 import ArgumentTypes "../../types/argumentTypes";
 import Constants "../../utils/constants";
-import { getTupleValueAsText } "../../utils/helper";
 import UserReadService "../user/read";
+import SharedTypes "../../../shared/types";
+import SharedConstants "../../../shared/constants";
 
 module {
   public func upsertCalendarData(
     userPrincipal : Text,
     calendarId : Text,
-    calendarPayload : ArgumentTypes.CalendarRequestPayload,
+    _calendarPayload : SharedTypes.CalendarRequestPayload,
     userDataMap : Map.Map<Principal, ArgumentTypes.UserPayload>,
     databases : Map.Map<Text, Database.Database>,
     canistergeekLogger : Canistergeek.Logger,
@@ -49,7 +47,7 @@ module {
     if (calendarExists) {
       let item = Database.updateItem({
         updateItemInput = {
-          databaseName = Constants.KonectA;
+          databaseName = SharedConstants.KonectA;
           tableName = Constants.CalendarTable;
           id = calendarId;
           attributeDataValues = dataValuesArray;
@@ -59,7 +57,7 @@ module {
       canistergeekLogger.logMessage("Calendar response --->" # debug_show (item));
 
       switch (item) {
-        case (#err(msg)) {
+        case (#err(_msg)) {
           response := "Failed to update calendar data";
         };
         case (#ok(result)) {
@@ -70,7 +68,7 @@ module {
     } else {
       let item = await Database.createItem({
         createItemInput = {
-          databaseName = Constants.KonectA;
+          databaseName = SharedConstants.KonectA;
           tableName = Constants.CalendarTable;
           attributeDataValues = dataValuesArray;
         };
@@ -79,7 +77,7 @@ module {
       canistergeekLogger.logMessage("Calendar response --->" # debug_show (item));
 
       switch (item) {
-        case (#err(msg)) {
+        case (#err(_msg)) {
           response := "Failed to save calendar data";
         };
         case (#ok(result)) {

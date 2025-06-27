@@ -1,22 +1,20 @@
 import Database "mo:alfangodb/AlfangoDB";
-import Array "mo:base/Array";
-import List "mo:base/List";
-import Prelude "mo:base/Prelude";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
-import KonectaEventTable "../../tables/konectaEventTable";
 import ArgumentTypes "../../types/argumentTypes";
 import Constants "../../utils/constants";
-import HelperService "../../utils/helper";
+import HelperService "../../../shared/common_utils/helper";
+import SharedConstants "../../../shared/constants";
+import SharedInterfaces "../../../shared/interfaces";
+import SharedTypes "../../../shared/types";
 import CommonService "../common";
 import { getEventData } "./read";
 
 module {
-  public func updateEvent(userPrincipal : Principal, userCanisterId : Text, payload : ArgumentTypes.EventRequestPayload, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : async Text {
+  public func updateEvent(_userPrincipal : Principal, userCanisterId : Text, payload : ArgumentTypes.EventRequestPayload, databases : Map.Map<Text, Database.Database>, canistergeekLogger : Canistergeek.Logger) : async Text {
     var response = "";
 
     let eventData = getEventData(payload.event_id, databases);
@@ -39,7 +37,7 @@ module {
       case (#ok(event)) {
         oldValues := event;
       };
-      case (#err(errorMessage)) ();
+      case (#err(_errorMessage)) ();
     };
     let konectaEventId = oldValues.konecta_event_id;
 
@@ -96,7 +94,7 @@ module {
 
     let item = Database.updateItem({
       updateItemInput = {
-        databaseName = Constants.KonectA;
+        databaseName = SharedConstants.KonectA;
         tableName = Constants.KonectAEventTable;
         attributeDataValues = attributeDataValues;
         id = konectaEventId;
@@ -106,21 +104,21 @@ module {
     canistergeekLogger.logMessage("Event update response --->" # debug_show (item));
 
     switch (item) {
-      case (#err(msg)) {
+      case (#err(_msg)) {
         response := "Failed to update event";
       };
       case (#ok(result)) {
 
-        let userCanister = actor (userCanisterId) : CommonService.UserCanisterType;
+        let userCanister = actor (userCanisterId) : SharedInterfaces.UserActor;
         let calendarId = await userCanister.getCalendarId(payload.event_id);
         let eventMetadataId = await userCanister.getEventMetadataId(payload.event_id, calendarId);
         canistergeekLogger.logMessage("Event metadata id --->" # debug_show (eventMetadataId));
 
         let eventObject = {
           event_id = payload.event_id;
-          status = payload.status;
-          categories = payload.categories;
-          interests = interests;
+          status = ?payload.status;
+          categories = ?payload.categories;
+          interests = payload.interests;
         };
         canistergeekLogger.logMessage("Event object --->" # debug_show (eventObject));
 
@@ -154,7 +152,7 @@ module {
           ("user_id", #text(eventData.user_id)),
           ("event_id", #text(eventData.event_id)),
           ("event_type", #text(eventData.event_type)),
-          ("status", #text(Constants.EventStatus.Canceled)),
+          ("status", #text(SharedTypes.EventStatus.Canceled)),
           ("categories", #list(categoriesArray)),
           ("consultations", #list(consultationsArray)),
           ("expertise", #text(eventData.expertise)),
@@ -169,7 +167,7 @@ module {
 
         let item = Database.updateItem({
           updateItemInput = {
-            databaseName = Constants.KonectA;
+            databaseName = SharedConstants.KonectA;
             tableName = Constants.KonectAEventTable;
             id = konectaEventId;
             attributeDataValues = attributeDataValues;
@@ -179,13 +177,13 @@ module {
         canistergeekLogger.logMessage("Cancel event response --->" # debug_show (item));
 
         switch (item) {
-          case (#ok(itemData)) {
+          case (#ok(_itemData)) {
 
-            let eventCanisterActor = actor (Constants.EventCanister) : CommonService.EventCanisterType;
+            let eventCanisterActor = actor (SharedConstants.EventCanister) : SharedInterfaces.EventActor;
             let cancelEventResponse = await eventCanisterActor.cancelEvent(userPrincipal, eventId);
 
             switch (cancelEventResponse) {
-              case (#ok(response)) {
+              case (#ok(_response)) {
                 #ok("Event canceled successfully");
               };
 

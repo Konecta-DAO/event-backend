@@ -1,103 +1,80 @@
 import Database "mo:alfangodb/AlfangoDB";
-import { generateULIDAsync } "mo:alfangodb/AlfangoDB/utils";
-import Array "mo:base/Array";
-import Buffer "mo:base/Buffer";
-import Debug "mo:base/Debug";
 import Principal "mo:base/Principal";
 import Text "mo:base/Text";
 import Canistergeek "mo:canistergeek/canistergeek";
 import Map "mo:map/Map";
-
-import Common "../../../event/services/common";
-import EventMetadataTable "../../tables/eventMetadataTable";
-import ArgumentTypes "../../types/argumentTypes";
 import Constants "../../utils/constants";
-import { getTupleValue; getTupleValueAsText; textToNat } "../../utils/helper";
 import CommonService "../common";
+import HelperService "../../../shared/common_utils/helper";
 import { getEventMetadataById } "./read";
+import SharedConstants "../../../shared/constants";
+import SharedTypes "../../../shared/types";
 
 module {
   public func updateEventMetaData(
-    userPrincipal : Principal,
+    _userPrincipal : Principal,
     eventMetadataId : Text,
-    eventMetadataPayload : ArgumentTypes.EventMetadataRequestPayload,
+    eventMetadataPayload : SharedTypes.UpdateEventMetadataPayload,
     databases : Map.Map<Text, Database.Database>,
     canistergeekLogger : Canistergeek.Logger,
   ) : async Text {
     var response = "";
 
-    let initialDataValues = Buffer.fromArray<(Text, Database.AttributeDataValue)>([]);
-    let dataValuesToBeAppended = Buffer.Buffer<(Text, Database.AttributeDataValue)>(0);
-
     let eventMetadataData = getEventMetadataById(eventMetadataId, databases);
 
-    var oldValues : ArgumentTypes.EventMetadataResponsePayload = {
-      calendar_id = "";
-      event_id = "";
-      name = "";
-      categories = [];
-      interests = [];
-      start_date = 0;
-      end_date = 0;
-      status = "";
-      created_by = "";
-    };
     switch (eventMetadataData) {
-      case (#ok(eventMetadata)) {
-        oldValues := eventMetadata;
-      };
-      case (#err(errorMessage)) ();
-    };
-
-    let calendar_id : Text = CommonService.initializeTextField(eventMetadataPayload.calendar_id, oldValues.calendar_id);
-    let eventName : Text = CommonService.initializeTextField(eventMetadataPayload.name, oldValues.name);
-    let startDate : Nat = CommonService.initializeNatField(eventMetadataPayload.start_date, oldValues.start_date);
-    let endDate : Nat = CommonService.initializeNatField(eventMetadataPayload.end_date, oldValues.end_date);
-    let createdBy : Principal = Principal.fromText(oldValues.created_by);
-
-    let oldInterestsArray : [Text] = oldValues.interests;
-    let interests : [Text] = CommonService.initializeTextArrayField(eventMetadataPayload.interests, oldInterestsArray);
-    let interestArray = CommonService.getStringAttributeDataValueArray(interests);
-
-    let oldCategoriesArray : [Text] = oldValues.categories;
-    let categories : [Text] = CommonService.initializeTextArrayField(eventMetadataPayload.categories, oldCategoriesArray);
-    let categoriesArray = CommonService.getStringAttributeDataValueArray(categories);
-
-    let eventStatus = CommonService.getEventStatus(eventMetadataPayload.status, oldValues.status);
-
-    dataValuesToBeAppended.add("calendar_id", #text(calendar_id));
-    dataValuesToBeAppended.add("event_id", #text(eventMetadataPayload.event_id));
-    dataValuesToBeAppended.add("name", #text(eventName));
-    dataValuesToBeAppended.add("categories", #list(categoriesArray));
-    dataValuesToBeAppended.add("interests", #list(interestArray));
-    dataValuesToBeAppended.add("start_date", #nat(startDate));
-    dataValuesToBeAppended.add("end_date", #nat(endDate));
-    dataValuesToBeAppended.add("status", #text(eventStatus));
-    dataValuesToBeAppended.add("created_by", #principal(createdBy));
-
-    initialDataValues.append(dataValuesToBeAppended);
-    let dataValuesArray = Buffer.toArray(initialDataValues);
-    canistergeekLogger.logMessage("Attribute data values --->" # debug_show (dataValuesArray));
-
-    let item = Database.updateItem({
-      updateItemInput = {
-        databaseName = Constants.KonectA;
-        tableName = Constants.EventMetadataTable;
-        id = eventMetadataId;
-        attributeDataValues = dataValuesArray;
-      };
-      alfangoDB = { databases };
-    });
-    canistergeekLogger.logMessage("Update Event metadata response --->" # debug_show (item));
-
-    switch (item) {
-      case (#err(msg)) {
-        response := "Failed to update event metadata";
-      };
-      case (#ok(result)) {
-        response := "Updated event metadata with id: " # result.id;
+      case (#err(errorMessage)) {
+        return "Failed to find event metadata to update: " # HelperService.textArrayToString(errorMessage);
       };
 
+      case (#ok(oldValues)) {
+        var finalStatusText = oldValues.status;
+        switch (eventMetadataPayload.status) {
+          case (?newStatusVariant) {
+            finalStatusText := CommonService.getEventStatus(newStatusVariant, oldValues.status);
+          };
+          case null{};
+        };
+
+        let finalInterests = HelperService.initializeTextArrayField(eventMetadataPayload.interests, oldValues.interests);
+        let interestArray = HelperService.getStringAttributeDataValueArray(finalInterests);
+
+        let finalCategories = HelperService.initializeTextArrayField(eventMetadataPayload.categories, oldValues.categories);
+        let categoriesArray = HelperService.getStringAttributeDataValueArray(finalCategories);
+
+        let attributeDataValues : [(Text, Database.AttributeDataValue)] = [
+          ("calendar_id", #text(oldValues.calendar_id)),
+          ("event_id", #text(oldValues.event_id)),
+          ("name", #text(oldValues.name)),
+          ("start_date", #nat(oldValues.start_date)),
+          ("end_date", #nat(oldValues.end_date)),
+          ("created_by", #principal(Principal.fromText(oldValues.created_by))),
+          ("status", #text(finalStatusText)),
+          ("categories", #list(categoriesArray)),
+          ("interests", #list(interestArray)),
+        ];
+        canistergeekLogger.logMessage("Attribute data values FOR UPDATE --->" # debug_show (attributeDataValues));
+
+        let item = Database.updateItem({
+          updateItemInput = {
+            databaseName = SharedConstants.KonectA;
+            tableName = Constants.EventMetadataTable;
+            id = eventMetadataId;
+            attributeDataValues = attributeDataValues;
+          };
+          alfangoDB = { databases };
+        });
+        canistergeekLogger.logMessage("Update Event metadata response --->" # debug_show (item));
+
+        switch (item) {
+          case (#err(_msg)) {
+            response := "Failed to update event metadata";
+          };
+          case (#ok(result)) {
+            response := "Updated event metadata with id: " # result.id;
+          };
+        };
+      };
     };
 
     return response;

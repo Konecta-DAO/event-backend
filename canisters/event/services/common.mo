@@ -1,18 +1,18 @@
 import Database "mo:alfangodb/AlfangoDB";
 import Buffer "mo:base/Buffer";
-import Debug "mo:base/Debug";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
 import D3 "mo:d3storage/D3";
-
+import SharedTypes "../../shared/types";
+import SharedServices "../../shared/services";
 import ArgumentTypes "../types/argumentTypes";
-import Constants "../utils/constants";
 import {
   getTupleArrayFromAttributeDataValueArray;
   getTupleValue;
   getTupleValueAsText;
   textToNat;
-} "../utils/helper";
+} "../../shared/common_utils/helper";
+
 module {
 
   public let initialEventObjectWithUserData = {
@@ -44,39 +44,26 @@ module {
     };
   };
 
-  public type UserCanisterType = actor {
-    createEventMetaData : (metadata : ArgumentTypes.EventMetadataPayload) -> async Result.Result<Text, Text>;
-    updateEventMetaData : (eventMetadataId : Text, metadata : ArgumentTypes.EventMetadataPayload) -> async Text;
-    upsertCalendarData : (userPrincipal : Text, calendarId : Text, calendarData : ArgumentTypes.CalendarRequestPayload) -> async Text;
-    getCalendarId : (eventId : Text) -> async Text;
-    getEventMetadataId : (eventId : Text, calendarId : Text) -> async Text;
-    getUserForEventCanister : shared query (userPrincipal : Text) -> async ArgumentTypes.UserResponsePayload;
-  };
-
-  public type IndexActor = actor {
-    getUserCanisterByUserPrincipal : shared query (principal : Text) -> async Text;
-  };
-
-  public func getEventStatus(action : ArgumentTypes.EventStatus, initialValue : Text) : Text {
+  public func getEventStatus(action : SharedTypes.EventStatus, initialValue : Text) : Text {
     var status = initialValue;
 
     switch (action) {
-      case (#Created) status := Constants.EventStatus.Created;
-      case (#Canceled) status := Constants.EventStatus.Canceled;
+      case (#Created) status := SharedTypes.EventStatus.Created;
+      case (#Canceled) status := SharedTypes.EventStatus.Canceled;
     };
 
     return status;
   };
 
-  public func getActionType(action : ArgumentTypes.EventAttendeeActions) : Text {
+  public func getActionType(action : SharedTypes.EventAttendeeActions) : Text {
     var actionType = "";
 
     switch (action) {
-      case (#Applied) actionType := Constants.EventAttendeeStatus.Applied;
-      case (#Joined) actionType := Constants.EventAttendeeStatus.Joined;
-      case (#Invited) actionType := Constants.EventAttendeeStatus.Invited;
-      case (#Accepted) actionType := Constants.EventAttendeeStatus.Accepted;
-      case (#Declined) actionType := Constants.EventAttendeeStatus.Declined;
+      case (#Applied) actionType := SharedTypes.EventAttendeeStatus.Applied;
+      case (#Joined) actionType := SharedTypes.EventAttendeeStatus.Joined;
+      case (#Invited) actionType := SharedTypes.EventAttendeeStatus.Invited;
+      case (#Accepted) actionType := SharedTypes.EventAttendeeStatus.Accepted;
+      case (#Declined) actionType := SharedTypes.EventAttendeeStatus.Declined;
     };
 
     return actionType;
@@ -132,9 +119,9 @@ module {
 
   };
 
-  public func transformGetAllEventsResponseAsync(eventResponse : Database.ScanOutputType) : async Result.Result<[ArgumentTypes.EventWithUserDataPayload], [Text]> {
-    let eventBuffer = Buffer.Buffer<ArgumentTypes.EventWithUserDataPayload>(0);
-    var eventsArray : [ArgumentTypes.EventWithUserDataPayload] = [];
+  public func transformGetAllEventsResponseAsync(eventResponse : Database.ScanOutputType) : async Result.Result<[SharedTypes.EventDetailsPayload], [Text]> {
+    let eventBuffer = Buffer.Buffer<SharedTypes.EventDetailsPayload>(0);
+    var eventsArray : [SharedTypes.EventDetailsPayload] = [];
     switch (eventResponse) {
       case (#ok(eventData)) {
         for (itemObject in eventData.vals()) {
@@ -153,8 +140,8 @@ module {
 
   };
 
-  public func transformGetEventResponseAsync(eventResponse : Database.GetItemByIdOutputType) : async Result.Result<ArgumentTypes.EventWithUserDataPayload, [Text]> {
-    let eventBuffer = Buffer.Buffer<ArgumentTypes.EventWithUserDataPayload>(0);
+  public func transformGetEventResponseAsync(eventResponse : Database.GetItemByIdOutputType) : async Result.Result<SharedTypes.EventDetailsPayload, [Text]> {
+    let eventBuffer = Buffer.Buffer<SharedTypes.EventDetailsPayload>(0);
 
     switch (eventResponse) {
       case (#ok(eventData)) {
@@ -194,10 +181,10 @@ module {
     return Buffer.toArray(eventBuffer);
   };
 
-  private func handleEventBufferWithUserData(eventId : Text, eventItem : [(Text, Database.AttributeDataValue)], eventBuffer : Buffer.Buffer<ArgumentTypes.EventWithUserDataPayload>) : async [ArgumentTypes.EventWithUserDataPayload] {
+  private func handleEventBufferWithUserData(eventId : Text, eventItem : [(Text, Database.AttributeDataValue)], eventBuffer : Buffer.Buffer<SharedTypes.EventDetailsPayload>) : async [SharedTypes.EventDetailsPayload] {
 
     let userId = getTupleValueAsText(eventItem, "user_id");
-    let userData = await getUserDetails(userId);
+    let userData = await SharedServices.getUserDetails(userId);
 
     eventBuffer.add({
       event_id = eventId;
@@ -216,21 +203,4 @@ module {
 
     return Buffer.toArray(eventBuffer);
   };
-
-  // Function to get the user canister ID
-  public func getUserCanisterId(userId : Text) : async Text {
-    let indexActor = actor (Constants.IndexCanister) : IndexActor;
-    return await indexActor.getUserCanisterByUserPrincipal(userId);
-  };
-
-  public func getUserDetails(userId : Text) : async ArgumentTypes.UserResponsePayload {
-
-    let userCanisterId = await getUserCanisterId(userId);
-
-    let userCanisterActor = actor (userCanisterId) : UserCanisterType;
-    let userData = await userCanisterActor.getUserForEventCanister(userId);
-
-    return userData;
-  };
-
 };

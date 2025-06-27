@@ -1,20 +1,17 @@
 import Database "mo:alfangodb/AlfangoDB";
-import Blob "mo:base/Blob";
 import Buffer "mo:base/Buffer";
-import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import D3 "mo:d3storage/D3";
 import Map "mo:map/Map";
-
+import SharedTypes "../../shared/types";
+import SharedConstants "../../shared/constants";
 import ArgumentTypes "../types/argumentTypes";
-import Constants "../utils/constants";
 import {
-  getAttributeDataValue;
-  getTupleArrayFromAttributeDataValueArray;
   getTupleValue;
   getTupleValueAsText;
   textToNat;
-} "../utils/helper";
+  getTextArrayFromAttributeDataValueArray;
+} "../../shared/common_utils/helper";
 
 module {
 
@@ -36,92 +33,29 @@ module {
 
   public func createProjectDatabase(databases : Map.Map<Text, Database.Database>) : async Text {
     let item = Database.createDatabase({
-      createDatabaseInput = { name = Constants.KonectA };
+      createDatabaseInput = { name = SharedConstants.KonectA };
       alfangoDB = { databases };
     });
 
     switch (item) {
-      case (#err(msg)) {
-        return "Failed to create " # Constants.KonectA # " database";
+      case (#err(_msg)) {
+        return "Failed to create " # SharedConstants.KonectA # " database";
       };
       case (#ok({})) {
-        return Constants.KonectA # "Database created successfully";
+        return SharedConstants.KonectA # "Database created successfully";
       };
     };
   };
 
-  public func getEventStatus(action : ArgumentTypes.EventStatus, initialValue : Text) : Text {
+  public func getEventStatus(action : SharedTypes.EventStatus, initialValue : Text) : Text {
     var status = initialValue;
 
     switch (action) {
-      case (#Created) status := Constants.EventStatus.Created;
-      case (#Canceled) status := Constants.EventStatus.Canceled;
+      case (#Created) status := SharedTypes.EventStatus.Created;
+      case (#Canceled) status := SharedTypes.EventStatus.Canceled;
     };
 
     return status;
-  };
-
-  public func getStringAttributeDataValueArray(array : [Text]) : [Database.StringAttributeDataValue] {
-    let initialBuffer = Buffer.fromArray<(Database.StringAttributeDataValue)>([]);
-    let valuesToBeAppended = Buffer.Buffer<(Database.StringAttributeDataValue)>(0);
-
-    for (element in array.vals()) {
-      valuesToBeAppended.add(#text(element));
-    };
-
-    initialBuffer.append(valuesToBeAppended);
-    return Buffer.toArray(initialBuffer);
-  };
-
-  public func initializeTextArrayField(payload : ?[Text], initialValue : [Text]) : [Text] {
-    switch (payload) {
-      case (?fieldValue) fieldValue;
-      case null initialValue;
-    };
-  };
-
-  public func initializeTextField(payload : ?Text, initialValue : Text) : Text {
-    switch (payload) {
-      case (?fieldValue) fieldValue;
-      case null initialValue;
-    };
-  };
-
-  public func initializeNatField(payload : ?Nat, initialValue : Nat) : Nat {
-    switch (payload) {
-      case (?fieldValue) fieldValue;
-      case null initialValue;
-    };
-  };
-
-  public func initializePrincipalField(payload : ?Principal, initialValue : Principal) : Principal {
-    switch (payload) {
-      case (?fieldValue) fieldValue;
-      case null initialValue;
-    };
-  };
-
-  public func getTextArrayFromAttributeDataValueArray(attributeDataValue : Database.AttributeDataValue) : [Text] {
-    var value : [Text] = [];
-    let initialBuffer = Buffer.fromArray<Text>([]);
-    let valuesToBeAppended = Buffer.Buffer<Text>(0);
-
-    switch (attributeDataValue) {
-      case (#list(array)) {
-        for (element in array.vals()) {
-          switch (element) {
-            case (#text(value)) { valuesToBeAppended.add(value) };
-            case (_) { value := [] };
-          };
-        };
-      };
-      case (_) { value := [] };
-    };
-
-    initialBuffer.append(valuesToBeAppended);
-    value := Buffer.toArray(initialBuffer);
-
-    return value;
   };
 
   public func getFile(fileId : Text, d3 : D3.D3) : D3.GetFileOutputType {
@@ -174,9 +108,8 @@ module {
 
   };
 
-  private func handleEventMetadataBuffer(eventMetadataId : Text, eventMetadataItem : [(Text, Database.AttributeDataValue)], eventMetadataBuffer : Buffer.Buffer<ArgumentTypes.EventMetadataResponsePayload>) : Buffer.Buffer<ArgumentTypes.EventMetadataResponsePayload> {
+  private func handleEventMetadataBuffer(_eventMetadataId : Text, eventMetadataItem : [(Text, Database.AttributeDataValue)], eventMetadataBuffer : Buffer.Buffer<ArgumentTypes.EventMetadataResponsePayload>) : Buffer.Buffer<ArgumentTypes.EventMetadataResponsePayload> {
     eventMetadataBuffer.add({
-      event_metadata_id = eventMetadataId;
       calendar_id = getTupleValueAsText(eventMetadataItem, "calendar_id");
       event_id = getTupleValueAsText(eventMetadataItem, "event_id");
       name = getTupleValueAsText(eventMetadataItem, "name");
