@@ -41,6 +41,19 @@ module {
     return CommonService.transformGetAllEventsResponse(eventResponse);
   };
 
+  public func eventDataById(eventId : Text, databases : Map.Map<Text, Database.Database>) : Result.Result<ArgumentTypes.EventResponsePayload, [Text]> {
+    let eventResponse = Database.getItemById({
+      getItemByIdInput = {
+        databaseName = SharedConstants.KonectA;
+        tableName = Constants.EventTable;
+        id = eventId;
+      };
+      alfangoDB = { databases };
+    });
+
+    return CommonService.transformGetEventResponse(eventResponse);
+  };
+
   public func eventDetailsWithUserData(eventId : Text, databases : Map.Map<Text, Database.Database>) : async Result.Result<SharedTypes.EventDetailsPayload, [Text]> {
     let eventResponse = Database.getItemById({
       getItemByIdInput = {

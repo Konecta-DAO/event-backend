@@ -88,27 +88,6 @@ shared ({ caller = initializer }) actor class KonectaCanister() = this {
     await EventUpdateService.cancelKonectaEvent(msg.caller, eventId, databases, canistergeekLogger);
   };
 
-  public shared (msg) func cancelKonectaEventPublic(principal : Text, eventId : Text) : async Result.Result<Text, Text> {
-    if (Principal.isAnonymous(msg.caller)) {
-      throw Error.reject("Anonymous callers are not allowed to perform this action.");
-    };
-    canistergeekMonitor.collectMetrics();
-    await EventUpdateService.cancelKonectaEvent(Principal.fromText(principal), eventId, databases, canistergeekLogger);
-  };
-
-  /**
-   * Retrieves the details of a Konecta event by event ID.
-   * @param eventId The ID of the event.
-   * @returns An array of tuples containing the event details.
-   */
-  public query func getKonectaEventDetailsByEventId(eventId : Text) : async Result.Result<ArgumentTypes.EventResponsePayload, [Text]> {
-    return EventReadService.getEventData(eventId, databases);
-  };
-
-  public query func checkIfEventIsCanceled(eventId : Text) : async Result.Result<Bool, Text> {
-    return EventReadService.checkIfEventIsCanceled(eventId, databases);
-  };
-
   public shared func getFeedDetailsByEventId(eventId : Text) : async Result.Result<ArgumentTypes.FeedResponsePayload, [Text]> {
     return await EventReadService.getFeedDetailsByEventId(eventId, databases);
   };
@@ -221,14 +200,10 @@ shared ({ caller = initializer }) actor class KonectaCanister() = this {
     };
     let eventType = EventReadService.getEventType(eventId, databases);
     if (eventType == KonectaConstants.EventType.Request) {
-      return await getUserStatusForServiceRequests(msg.caller, eventId);
+      return FeedRequestReadService.getUserStatusForServiceRequests(msg.caller, eventId, databases, canistergeekLogger);
     } else {
       return await getUserStatusForServiceOffers(msg.caller, eventId);
     };
-  };
-
-  public query func getUserStatusForServiceRequests(userPrincipal : Principal, eventId : Text) : async Text {
-    FeedRequestReadService.getUserStatusForServiceRequests(userPrincipal, eventId, databases, canistergeekLogger);
   };
 
   public composite query func getUserStatusForServiceOffers(userPrincipal : Principal, eventId : Text) : async Text {
@@ -240,11 +215,6 @@ shared ({ caller = initializer }) actor class KonectaCanister() = this {
       status := SharedTypes.EventAttendeeStatus.Joined;
     };
     return status;
-  };
-
-  public query func getAllKonectAEvents() : async Result.Result<[ArgumentTypes.EventResponsePayload], [Text]> {
-    canistergeekMonitor.collectMetrics();
-    EventReadService.getAllEvents(databases);
   };
 
   public shared (msg) func getMyProposals() : async Result.Result<[ArgumentTypes.ProposalResponsePayload], Text> {
@@ -271,38 +241,6 @@ shared ({ caller = initializer }) actor class KonectaCanister() = this {
     await FeedRequestReadService.getServiceRequestsForMyProfile(msg.caller, databases, canistergeekLogger);
   };
 
-  public shared (msg) func getMyProposalsPublic(userPrincipal : Text) : async Result.Result<[ArgumentTypes.ProposalResponsePayload], Text> {
-    if (Principal.isAnonymous(msg.caller)) {
-      throw Error.reject("Anonymous callers are not allowed to perform this action.");
-    };
-    canistergeekMonitor.collectMetrics();
-    await FeedRequestReadService.getMyProposals(Principal.fromText(userPrincipal), databases, canistergeekLogger);
-  };
-
-  public shared (msg) func getServiceOffersForMyProfilePublic(userPrincipal : Text) : async Result.Result<[ArgumentTypes.FeedResponsePayload], Text> {
-    if (Principal.isAnonymous(msg.caller)) {
-      throw Error.reject("Anonymous callers are not allowed to perform this action.");
-    };
-    canistergeekMonitor.collectMetrics();
-    await FeedOfferReadService.getServiceOffersForMyProfile(Principal.fromText(userPrincipal), databases, canistergeekLogger);
-  };
-
-  public shared (msg) func getServiceRequestsForMyProfilePublic(userPrincipal : Text) : async Result.Result<[ArgumentTypes.FeedResponsePayload], Text> {
-    if (Principal.isAnonymous(msg.caller)) {
-      throw Error.reject("Anonymous callers are not allowed to perform this action.");
-    };
-    canistergeekMonitor.collectMetrics();
-    await FeedRequestReadService.getServiceRequestsForMyProfile(Principal.fromText(userPrincipal), databases, canistergeekLogger);
-  };
-
-  public shared (msg) func getMyServiceRequestsPublic(pid : Text) : async Result.Result<[ArgumentTypes.FeedResponsePayload], [Text]> {
-    if (Principal.isAnonymous(msg.caller)) {
-      throw Error.reject("Anonymous callers are not allowed to perform this action.");
-    };
-    canistergeekMonitor.collectMetrics();
-    await FeedRequestReadService.getMyServiceRequests(Principal.fromText(pid), databases, canistergeekLogger);
-  };
-
   public shared (msg) func getServiceRequestsApartFromMe() : async Result.Result<[ArgumentTypes.FeedResponsePayload], [Text]> {
     canistergeekMonitor.collectMetrics();
     await FeedRequestReadService.getServiceRequestsApartFromMe(msg.caller, databases, canistergeekLogger);
@@ -314,14 +252,6 @@ shared ({ caller = initializer }) actor class KonectaCanister() = this {
     };
     canistergeekMonitor.collectMetrics();
     await FeedRequestReadService.getServiceRequestsApartFromMe(Principal.fromText(pid), databases, canistergeekLogger);
-  };
-
-  public shared (msg) func getMyServiceOffers() : async Result.Result<[ArgumentTypes.FeedResponsePayload], [Text]> {
-    if (Principal.isAnonymous(msg.caller)) {
-      throw Error.reject("Anonymous callers are not allowed to perform this action.");
-    };
-    canistergeekMonitor.collectMetrics();
-    await FeedOfferReadService.getMyServiceOffers(msg.caller, databases, canistergeekLogger);
   };
 
   public shared (msg) func getMyServiceOffersPublic(pid : Text) : async Result.Result<[ArgumentTypes.FeedResponsePayload], [Text]> {
@@ -338,18 +268,6 @@ shared ({ caller = initializer }) actor class KonectaCanister() = this {
     };
     canistergeekMonitor.collectMetrics();
     await FeedOfferReadService.getServiceOffersApartFromMe(msg.caller, databases, canistergeekLogger);
-  };
-
-  public shared (msg) func getServiceOffersApartFromMePublic(pid : Text) : async Result.Result<[ArgumentTypes.FeedResponsePayload], [Text]> {
-    if (Principal.isAnonymous(msg.caller)) {
-      throw Error.reject("Anonymous callers are not allowed to perform this action.");
-    };
-    canistergeekMonitor.collectMetrics();
-    await FeedOfferReadService.getServiceOffersApartFromMe(
-      Principal.fromText(pid),
-      databases,
-      canistergeekLogger,
-    );
   };
 
   public composite query func getUserDetailsByCompositeQuery(userId : Text) : async SharedTypes.UserResponsePayload {

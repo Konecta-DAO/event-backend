@@ -37,20 +37,6 @@ shared ({ caller = initializer }) actor class EventCanister() = this {
     return SharedConstants.whiteListedCanisters;
   };
 
-  public shared (msg) func createEvent(userCanisterId : Text, payload : ArgumentTypes.EventRequestPayload) : async Text {
-    if (Principal.isAnonymous(msg.caller)) {
-      throw Error.reject("Anonymous callers are not allowed to perform this action.");
-    };
-    canistergeekMonitor.collectMetrics();
-
-    let result = await EventAddService.createEvent(msg.caller, userCanisterId, payload, databases, d3, canistergeekLogger);
-
-    switch (result) {
-      case (#ok(successPayload)) successPayload.id;
-      case (#err(errorMsg)) errorMsg;
-    };
-  };
-
   public shared (msg) func createEventAndRegisterWithKonecta(
     userCanisterId : Text,
     payload : ArgumentTypes.CreateEventAndKonectaPayload,

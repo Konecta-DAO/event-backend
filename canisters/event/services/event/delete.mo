@@ -28,7 +28,7 @@ module {
             await userCanister.deleteCalendarData(eventData.calendarId);
             canistergeekLogger.logMessage("Rollback: Deleted Calendar Data " # eventData.calendarId);
 
-        } catch (e) {
+        } catch (_e) {
             let errorMsg = "Rollback: FAILED to delete data from User canister.";
             canistergeekLogger.logMessage("CRITICAL: " # errorMsg);
             return #err(errorMsg);
@@ -53,7 +53,7 @@ module {
         });
 
         switch (deleteResult) {
-            case (#ok) {
+            case (#ok _) {
                 canistergeekLogger.logMessage("Rollback: Deleted event record " # eventData.id);
                 return #ok;
             };

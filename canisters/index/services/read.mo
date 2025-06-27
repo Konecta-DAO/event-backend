@@ -1,5 +1,4 @@
 import Array "mo:base/Array";
-import Buffer "mo:base/Buffer";
 import Iter "mo:base/Iter";
 import Principal "mo:base/Principal";
 import Text "mo:base/Text";
@@ -66,19 +65,5 @@ module {
     };
 
     return exists;
-  };
-
-  public func getListOfUsers(userDataMap : Map.Map<Principal, ArgumentTypes.UserMapPayload>) : [ArgumentTypes.UserMapPayload] {
-    let usersBuffer = Buffer.Buffer<ArgumentTypes.UserMapPayload>(0);
-
-    for ((key, value) in Map.toArray(userDataMap).vals()) {
-      usersBuffer.add({
-        canister_id = value.canister_id;
-        principal_id = value.principal_id;
-        username = value.username;
-      });
-    };
-
-    return Buffer.toArray(usersBuffer);
   };
 };

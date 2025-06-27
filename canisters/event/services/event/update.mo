@@ -59,6 +59,8 @@ module {
         };
         case (#StoreFileChunkOutput(_)) {};
         case (#StoreFileMetadataOutput(_)) {};
+        case (#CleanupAbandonedUploadsOutput(_)) {};
+        case (#DeleteFileOutput(_)) {};
       };
     };
 

@@ -26,24 +26,6 @@ module {
     return CommonService.transformGetEventMetadataResponse(item);
   };
 
-  public func getAllEventsMetadata(databases : Map.Map<Text, Database.Database>) : Result.Result<[ArgumentTypes.EventMetadataResponsePayload], [Text]> {
-    let items = Database.scan({
-      scanInput = {
-        databaseName = SharedConstants.KonectA;
-        tableName = Constants.EventMetadataTable;
-        filterExpressions = [
-          {
-            attributeName = "status";
-            filterExpressionCondition = #NEQ(#text(SharedTypes.EventStatus.Canceled));
-          },
-        ];
-      };
-      alfangoDB = { databases };
-    });
-
-    return CommonService.transformGetAllEventMetadataResponse(items);
-  };
-
   public func getAllEventsMetadataForUser(databases : Map.Map<Text, Database.Database>) : Result.Result<[ArgumentTypes.EventMetadataResponsePayload], [Text]> {
     let items = Database.scan({
       scanInput = {

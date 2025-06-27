@@ -16,8 +16,6 @@ import EventMetadataCreateService "services/event_metadata/create";
 import EventMetadataReadService "services/event_metadata/read";
 import EventMetadataSchemaService "services/event_metadata/schema";
 import EventMetadataUpdateService "services/event_metadata/update";
-import Account "services/icPCH/Account";
-import icPCHUtils "services/icPCH/Utils";
 import FileUploadService "services/user/fileupload";
 import UserReadService "services/user/read";
 import UserUpsertService "services/user/upsert";
@@ -43,17 +41,6 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
     return SharedConstants.whiteListedCanisters;
   };
 
-  public query func getCurrentCanisterPrincipal() : async Text {
-    return Principal.toText(Principal.fromActor(this));
-  };
-
-  public query (msg) func getAccountIdentifier() : async Text {
-    if (Principal.isAnonymous(msg.caller)) {
-      throw Error.reject("Anonymous callers are not allowed to perform this action.");
-    };
-    icPCHUtils.blobToHex(Account.accountIdentifier(msg.caller, Account.defaultSubaccount()));
-  };
-
   public shared (msg) func upsertUser(payload : ArgumentTypes.UserRequestPayload) : async Text {
     if (Principal.isAnonymous(msg.caller)) {
       throw Error.reject("Anonymous callers are not allowed to perform this action.");
@@ -77,10 +64,6 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
 
   public query func getUserByPrincipalId(userPrincipal : Text) : async ?ArgumentTypes.UserPayload {
     UserReadService.getUserByUserId(userPrincipal, userDataMap);
-  };
-
-  public query func getUserDetailsByUsername(username : Text) : async ?ArgumentTypes.UserPayload {
-    UserReadService.getUserByUsername(username, userDataMap);
   };
 
   public query func getUserForEventCanister(userPrincipal : Text) : async ArgumentTypes.EventUserResponsePayload {
@@ -179,10 +162,6 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
     EventMetadataReadService.getEventMetadataById(eventMetadataId, databases);
   };
 
-  public query func getAllEventsMetadata() : async Result.Result<[ArgumentTypes.EventMetadataResponsePayload], [Text]> {
-    EventMetadataReadService.getAllEventsMetadata(databases);
-  };
-
   public query func getAllEventsMetadataForUser() : async Result.Result<[ArgumentTypes.EventMetadataResponsePayload], [Text]> {
     EventMetadataReadService.getAllEventsMetadataForUser(databases);
   };
@@ -203,10 +182,6 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
       throw Error.reject("Anonymous callers are not allowed to perform this action.");
     };
     await FileUploadService.saveFile(file, d3);
-  };
-
-  public query func getUserPublic(pid : Text) : async ?ArgumentTypes.UserPayload {
-    UserReadService.getUserDataByPrincipalId(Principal.fromText(pid), userDataMap);
   };
 
   public query func getFile(fileId : Text) : async D3.GetFileOutputType {

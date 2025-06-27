@@ -17,27 +17,6 @@ module {
     return Map.get(userDataMap, Map.phash, Principal.fromText(userPrincipal));
   };
 
-  public func getUserByUsername(username : Text, userDataMap : Map.Map<Principal, ArgumentTypes.UserPayload>) : ?ArgumentTypes.UserPayload {
-    let userDataArray = Iter.toArray(Map.vals(userDataMap));
-
-    let userData = Array.find<ArgumentTypes.UserPayload>(
-      userDataArray,
-      func(x) : Bool {
-        return x.username == username;
-      },
-    );
-
-    switch (userData) {
-      case (null) {
-        return null;
-      };
-      case (user) {
-        return user;
-
-      };
-    };
-  };
-
   public func isUsernamePresent(username : Text, userDataMap : Map.Map<Principal, ArgumentTypes.UserPayload>) : Bool {
 
     var exists = false;

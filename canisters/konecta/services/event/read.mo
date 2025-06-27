@@ -6,7 +6,6 @@ import Map "mo:map/Map";
 import CommonService "../../services/common";
 import ArgumentTypes "../../types/argumentTypes";
 import Constants "../../utils/constants";
-import HelperService "../../../shared/common_utils/helper";
 import SharedConstants "../../../shared/constants";
 import SharedTypes "../../../shared/types";
 
@@ -51,30 +50,6 @@ module {
       };
       case (#err(error)) #err(error);
     };
-  };
-
-  public func getAllEvents(databases : Map.Map<Text, Database.Database>) : Result.Result<[ArgumentTypes.EventResponsePayload], [Text]> {
-    let items = Database.scan({
-      scanInput = {
-        databaseName = SharedConstants.KonectA;
-        tableName = Constants.KonectAEventTable;
-        filterExpressions = [
-          {
-            attributeName = "status";
-            filterExpressionCondition = #NEQ(#text(SharedTypes.EventStatus.Canceled));
-          },
-        ];
-      };
-      alfangoDB = { databases };
-    });
-
-    switch (items) {
-      case (#ok(_eventData)) {
-        return CommonService.transformGetAllEventsResponse(items);
-      };
-      case (#err(error)) #err(error);
-    };
-
   };
 
   public func checkIfEventExists(eventId : Text, databases : Map.Map<Text, Database.Database>) : Bool {
@@ -133,39 +108,4 @@ module {
     });
   };
 
-  public func checkIfEventIsCanceled(eventId : Text, databases : Map.Map<Text, Database.Database>) : Result.Result<Bool, Text> {
-
-    var isCanceled = false;
-    let items = Database.scan({
-      scanInput = {
-        databaseName = SharedConstants.KonectA;
-        tableName = Constants.KonectAEventTable;
-        filterExpressions = [{
-          attributeName = "event_id";
-          filterExpressionCondition = #EQ(#text(eventId));
-        }];
-      };
-      alfangoDB = { databases };
-    });
-
-    switch (items) {
-      case (#ok(_eventData)) {
-        let eventData = CommonService.transformArrayOfLengthOne(items);
-
-        switch (eventData) {
-          case (#ok(data)) {
-            let status = data.status;
-            if (status == SharedTypes.EventStatus.Canceled) {
-              isCanceled := true;
-            };
-
-            #ok(isCanceled);
-          };
-          case (#err(error)) { #err(HelperService.textArrayToString(error)) };
-        };
-
-      };
-      case (#err(error)) #err(HelperService.textArrayToString(error));
-    };
-  };
 };

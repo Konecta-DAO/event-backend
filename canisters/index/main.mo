@@ -74,18 +74,6 @@ shared ({ caller = initializer }) actor class IndexCanister() = this {
   };
 
   /**
-   * @desc Checks if the caller's user canister exists or not.
-   * @param msg The message containing the caller's information.
-   * @returns A Bool indicating whether the user canister exists or not.
-   */
-  public query (msg) func userExistsOrNot() : async Bool {
-    if (Principal.isAnonymous(msg.caller)) {
-      throw Error.reject("Anonymous callers are not allowed to perform this action.");
-    };
-    ReadService.userExistsOrNot(msg.caller, userCanisterMap);
-  };
-
-  /**
    * @desc Checks if the given username exists or not.
    * @param username The username to check.
    * @param msg The message containing the caller's information.
@@ -105,10 +93,6 @@ shared ({ caller = initializer }) actor class IndexCanister() = this {
 
   public func reinstallUserCanisters() : async Text {
     await UpgradeService.reinstallUserCanisters(userCanisterMap);
-  };
-
-  public query func getListOfUsers() : async [ArgumentTypes.UserMapPayload] {
-    return ReadService.getListOfUsers(userDataMap);
   };
 
   public composite query func getUsersDataByPrincipal(userIds : [Text]) : async [(Text, ?SharedTypes.UserResponsePayload)] {
