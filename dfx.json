@@ -1,0 +1,27 @@
+{
+  "canisters": {
+    "index": {
+      "type": "motoko",
+      "main": "canisters/index/main.mo"
+    },
+    "event": {
+      "type": "motoko",
+      "main": "canisters/event/main.mo"
+    },
+    "konecta": {
+      "type": "motoko",
+      "main": "canisters/konecta/main.mo"
+    },
+    "user": {
+      "type": "motoko",
+      "main": "canisters/user/main.mo"
+    }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "npm run --silent sources"
+    }
+  },
+  "output_env_file": ".env",
+  "version": 2
+}
