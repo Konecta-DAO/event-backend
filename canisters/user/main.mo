@@ -66,14 +66,22 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
     } else {
       switch (profile) {
         case (?currentProfile) {
-          if (currentProfile.principal_id != caller) {
+          let indexCanisterPrincipal = Principal.fromText(UserConstants.IndexCanister);
+
+          if (currentProfile.principal_id != caller and caller != indexCanisterPrincipal) {
             return "Error: Caller is not authorized to update this profile.";
+          };
+
+          let newUsername = if (caller == indexCanisterPrincipal) {
+            payload.username;
+          } else {
+            currentProfile.username;
           };
 
           profile := ?{
             principal_id = currentProfile.principal_id;
             canister_id = currentProfile.canister_id;
-            username = currentProfile.username;
+            username = newUsername;
             firstname = payload.firstname;
             lastname = payload.lastname;
             email = payload.email;

@@ -23,4 +23,5 @@ module {
     "https://2ouva-viaaa-aaaaq-aaamq-cai",
     "https://wfguo-oiaaa-aaaag-qngma-cai.icp0.io/",
   ];
+  public let IndexCanister = "yak2b-tqaaa-aaaag-qnhmq-cai";
 };

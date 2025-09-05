@@ -87,4 +87,19 @@ module {
   };
 
   public type RegistrationCheckResult = Result.Result<RegistrationCheckSuccess, RegistrationCheckError>;
+
+  public type UserRequestPayload = {
+    principal_id : ?Text;
+    firstname : Text;
+    lastname : Text;
+    username : Text;
+    email : Text;
+    bio : ?Text;
+    categories : ?[Text];
+    profilepic : ?Text;
+    coverphoto : ?Text;
+    introduction_video_link : ?Text;
+    country : Text;
+    timezone : Text;
+  };
 };

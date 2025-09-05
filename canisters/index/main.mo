@@ -309,10 +309,12 @@ shared ({ caller = initializer }) actor class IndexCanister() = this {
   /**
    * @desc Composite query to verify if a user is fully and correctly registered.
    * Checks for a user record in the index canister and for data consistency with the user's own canister.
+   * If a username inconsistency is found, it automatically corrects the user canister.
    * @param userPrincipal The principal of the user to check.
    * @returns A Result indicating success (#ok with a confirmation message) or failure (#err with an error description).
    */
-  public composite query func isUserRegistered(userPrincipal : Principal) : async ArgumentTypes.RegistrationCheckResult {
+  public shared (msg) func isUserRegistered() : async ArgumentTypes.RegistrationCheckResult {
+    let userPrincipal = msg.caller;
     // 1. Check for user and subaccount records in the index canister.
     let indexRecord = ReadService.findUser(Principal.toText(userPrincipal), alfangoDB);
     let subaccountRecord = ReadService.getSubaccountForUser(userPrincipal, alfangoDB);
@@ -371,14 +373,29 @@ shared ({ caller = initializer }) actor class IndexCanister() = this {
                   subaccount_ledger_identifier = subLedgerId;
                 });
               } else {
-                let errorMessage = "Data inconsistency: Index username is '"
-                # indexedUsername
-                # "', but user canister username is '"
-                # userProfile.username
-                # "'.";
-                return #err({
-                  message = errorMessage;
-                  canister_id = ?userCanisterId;
+                // Data is inconsistent, so we fix it by updating the user canister.
+                let updatePayload : ArgumentTypes.UserRequestPayload = {
+                  principal_id = null; // Not needed for an update.
+                  firstname = userProfile.firstname;
+                  lastname = userProfile.lastname;
+                  username = indexedUsername; // Use the correct username from the index.
+                  email = userProfile.email;
+                  bio = ?userProfile.bio;
+                  categories = ?userProfile.categories;
+                  profilepic = ?userProfile.profilepic;
+                  coverphoto = ?userProfile.coverphoto;
+                  introduction_video_link = ?userProfile.introduction_video_link;
+                  country = userProfile.country;
+                  timezone = userProfile.timezone;
+                };
+
+                // Asynchronously call the user canister to update its profile.
+                ignore await userCanisterActor.upsertUser(updatePayload);
+
+                // Return a success response indicating the fix has been applied.
+                return #ok({
+                  message = "User registration was inconsistent but has now been automatically corrected.";
+                  canister_id = userCanisterId;
                   subaccount_id_hex = subIdHex;
                   subaccount_ledger_identifier = subLedgerId;
                 });
