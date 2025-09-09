@@ -1170,6 +1170,208 @@ shared ({ caller = initializer }) actor class EventCanister() = this {
     };
   };
 
+  public shared func getPaginatedFilteredEventsNoComposite(
+    payload : {
+      currentTimestamp : Nat;
+      isFuture : Bool;
+      eventType : ?Text;
+      status : ?Text;
+      userId : ?Principal;
+      categories : ?[Text];
+      recordingType : ?[Bool];
+      limit : Nat;
+      cursor : ?SearchTypes.PaginatedScanCursor;
+    }
+  ) : async Result.Result<ArgumentTypes.PaginatedEventWithUserDataPayload, [Text]> {
+    canistergeekMonitor.collectMetrics();
+
+    // --- 1. Build Filter Expressions (same as your old function) ---
+    var filterExpressions = Buffer.Buffer<SearchTypes.FilterExpressionType>(5);
+
+    if (payload.isFuture) {
+      filterExpressions.add({
+        attributeNames = "start_date";
+        filterExpressionCondition = #GTE(#nat(payload.currentTimestamp));
+      });
+    } else {
+      filterExpressions.add({
+        attributeNames = "start_date";
+        filterExpressionCondition = #LT(#nat(payload.currentTimestamp));
+      });
+    };
+    switch (payload.eventType) {
+      case (?et) {
+        filterExpressions.add({
+          attributeNames = "event_type";
+          filterExpressionCondition = #EQ(#text(et));
+        });
+      };
+      case null {};
+    };
+    switch (payload.status) {
+      case (?s) {
+        filterExpressions.add({
+          attributeNames = "status";
+          filterExpressionCondition = #EQ(#text(s));
+        });
+      };
+      case null {};
+    };
+    switch (payload.userId) {
+      case (?uid) {
+        filterExpressions.add({
+          attributeNames = "user_id";
+          filterExpressionCondition = #EQ(#principal(uid));
+        });
+      };
+      case null {};
+    };
+    switch (payload.categories) {
+      case (?cats) {
+        if (cats.size() > 0) {
+          filterExpressions.add({
+            attributeNames = "categories";
+            filterExpressionCondition = #IN(Helper.getStringAttributeDataValueArray(cats));
+          });
+        };
+      };
+      case null {};
+    };
+    switch (payload.recordingType) {
+      case (?rec) {
+        if (rec.size() > 0) {
+          filterExpressions.add({
+            attributeNames = "is_recording_available";
+            filterExpressionCondition = #IN(Helper.getBoolAttributeDataValueArray(rec));
+          });
+        };
+      };
+      case null {};
+    };
+
+    let filterExpressionsArray = Buffer.toArray(filterExpressions);
+    let queryFilters = Array.map<SearchTypes.FilterExpressionType, SearchTypes.QueryFilter>(
+      filterExpressionsArray,
+      func(e) { #expression(e) },
+    );
+    let filter : SearchTypes.QueryFilter = #AND(queryFilters);
+
+    // --- 2. Get Total Record Count (only for the first page) ---
+    let totalRecords = if (payload.cursor == null) {
+      // This is a cheaper query to get just the count of matching items.
+      EventCommonService.getTotalRecords(Constants.EventTable, filterExpressionsArray, alfangoDB);
+    } else {
+      0; // Don't recalculate for subsequent pages. The frontend should persist this.
+    };
+
+    // --- 3. Fetch the Page from the Database (The Scalable Part) ---
+    let pageResponse = Database.paginatedScan({
+      paginatedScanInput = {
+        databaseName = Constants.KonectA;
+        tableName = Constants.EventTable;
+        filter = filter;
+        limit = payload.limit;
+        cursor = payload.cursor;
+      };
+      alfangoDB = alfangoDB;
+    });
+
+    switch (pageResponse) {
+      case (#err(e)) { return #err(e) };
+      case (#ok(page)) {
+        var events = page.items;
+
+        // --- 4. Enrich the Page with User Data ---
+        // let enrichedItems = await getEventsWithUserData(page.items);
+        if (events.size() == 0) {
+          return #err(["NO_EVENTS_FOUND"]);
+        };
+
+        // --- SubStep 1: Collect unique user IDs from the events ---
+        let userIdMap = HashMap.HashMap<Text, ()>(events.size(), Text.equal, Text.hash);
+        for (event in events.vals()) {
+          let userId = Helper.getTupleValueAsText(event.item, "user_id");
+          if (Text.size(userId) > 0) { userIdMap.put(userId, ()) };
+        };
+        let userIds = Buffer.toArray(Buffer.fromIter<Text>(userIdMap.keys()));
+
+        // --- SubStep 2: Fetch all user data in batch (Inlined logic from getUsersDetails) ---
+        let userDataMap = HashMap.HashMap<Text, ArgumentTypes.UserResponsePayload>(userIds.size(), Text.equal, Text.hash);
+
+        if (userIds.size() > 0) {
+          let indexActor = actor (Constants.IndexCanister) : EventCommonService.IndexActor;
+          let canisterMappings = await indexActor.getUserCanistersByPrincipal(userIds);
+
+          if (canisterMappings.size() > 0) {
+            let userDetailFutures = Buffer.Buffer<async ArgumentTypes.UserResponsePayload>(canisterMappings.size());
+            for (mapping in canisterMappings.vals()) {
+              let userCanisterActor = actor (mapping.canister_id) : EventCommonService.UserCanisterType;
+              userDetailFutures.add(userCanisterActor.getUserForEventCanister(mapping.principal_id));
+            };
+
+            for (future in userDetailFutures.vals()) {
+              let userDetails = await future;
+              if (Text.size(userDetails.principal_id) > 0) {
+                userDataMap.put(userDetails.principal_id, userDetails);
+              };
+            };
+          };
+        };
+
+        // --- SubStep 3: Combine event data with the fetched user data ---
+        let resultBuffer = Buffer.Buffer<ArgumentTypes.EventWithUserDataPayload>(events.size());
+        for (event in events.vals()) {
+          let eventId = event.id;
+          let eventItem = event.item;
+          let itemMap = Helper.attributeArrayToHashMap(eventItem);
+          let userId = Helper.getAttributeFromMapAsText(itemMap, "user_id");
+
+          let userData = switch (userDataMap.get(userId)) {
+            case (?u) u;
+            case null EventCommonService.initialEventObjectWithUserData.userData;
+          };
+
+          let eventPayload = EventCommonService.transformItemToEventPayload(eventId, itemMap);
+          resultBuffer.add({
+            event_id = eventPayload.event_id;
+            user_id = eventPayload.user_id;
+            coverphoto = eventPayload.coverphoto;
+            name = eventPayload.name;
+            description = eventPayload.description;
+            location = eventPayload.location;
+            start_date = eventPayload.start_date;
+            end_date = eventPayload.end_date;
+            language = eventPayload.language;
+            status = eventPayload.status;
+            metadata = eventPayload.metadata;
+            event_type = eventPayload.event_type;
+            participation_type = eventPayload.participation_type;
+            categories = eventPayload.categories;
+            consultations = eventPayload.consultations;
+            expertise = eventPayload.expertise;
+            price_token = eventPayload.price_token;
+            token_amount = eventPayload.token_amount;
+            interests = eventPayload.interests;
+            showcase_link = eventPayload.showcase_link;
+            recording_visibility = eventPayload.recording_visibility;
+            is_recording_available = eventPayload.is_recording_available;
+            subaccount_id_hex = eventPayload.subaccount_id_hex;
+            subaccount_id_index = eventPayload.subaccount_id_index;
+            userData = userData;
+          });
+        };
+
+        // --- 5. Return the Structured Paginated Response ---
+        return #ok({
+          items = Buffer.toArray(resultBuffer);
+          totalRecords = totalRecords;
+          hasMore = page.hasMore;
+          nextCursor = page.nextCursor;
+        });
+      };
+    };
+  };
+
   public shared (msg) func acceptApplication(eventId : Text, acceptedUserId : Principal) : async Result.Result<Text, Text> {
     canistergeekMonitor.collectMetrics();
     await EventUpdateService.acceptApplication(msg.caller, eventId, acceptedUserId, alfangoDB, canistergeekLogger);
