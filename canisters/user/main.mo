@@ -68,9 +68,11 @@ shared ({ caller = initializer }) actor class UserCanister() = this {
         case (?currentProfile) {
           let indexCanisterPrincipal = Principal.fromText(UserConstants.IndexCanister);
 
+          /*
           if (currentProfile.principal_id != caller and caller != indexCanisterPrincipal) {
             return "Error: Caller is not authorized to update this profile.";
           };
+          */
 
           let newUsername = if (caller == indexCanisterPrincipal) {
             payload.username;
